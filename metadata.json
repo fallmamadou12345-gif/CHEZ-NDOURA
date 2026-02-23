@@ -1,0 +1,5 @@
+{
+  "name": "Gestion Boutique",
+  "description": "Solution de gestion de stock et de rentabilité pour boutique. Suivi des stocks, calcul de marge unitaire, et rapports de performance.",
+  "requestFramePermissions": []
+}

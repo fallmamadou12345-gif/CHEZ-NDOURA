@@ -1,0 +1,51 @@
+import { LucideIcon } from "lucide-react";
+
+export interface User {
+  id: number;
+  username: string;
+  role: 'ADMIN' | 'CASHIER';
+}
+
+export interface NavItem {
+  title: string;
+  href: string;
+  icon: LucideIcon;
+}
+
+export interface Product {
+  id: number;
+  name: string;
+  sku: string;
+  batch_price: number;
+  batch_quantity: number;
+  unit_sell_price: number;
+  stock_quantity: number;
+  min_stock_threshold: number;
+  unit: string;
+  // Derived
+  unit_cost?: number;
+  margin?: number;
+  margin_percent?: number;
+}
+
+export interface DashboardStats {
+  revenue: number;
+  salesCount: number;
+  lowStockCount: number;
+  grossProfit: number;
+  totalExpenses: number;
+  netProfit: number;
+}
+
+export interface Expense {
+  id: number;
+  category: string;
+  description: string;
+  amount: number;
+  date: string;
+}
+
+export interface PerformanceReport {
+  bestSellers: { name: string; total_sold: number }[];
+  mostProfitable: { name: string; profit: number }[];
+}
