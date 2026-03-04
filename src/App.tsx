@@ -3,47 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { NAV_ITEMS } from "./constants";
-import { LayoutDashboard, Package, ShoppingCart, BarChart3, Menu, X, LogOut, User as UserIcon } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, BarChart3, Menu, X } from "lucide-react";
 import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
 import POS from "./pages/POS";
 import Reports from "./pages/Reports";
 import Expenses from "./pages/Expenses";
-import Login from "./pages/Login";
 import Settings from "./pages/Settings";
-import { User } from "./types";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("/");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-
-  // Check for persisted user session (simple localStorage implementation)
-  useEffect(() => {
-    const storedUser = localStorage.getItem("boutique_user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-  }, []);
-
-  const handleLogin = (loggedInUser: User) => {
-    setUser(loggedInUser);
-    localStorage.setItem("boutique_user", JSON.stringify(loggedInUser));
-    // Set default tab based on role
-    if (loggedInUser.role === 'CASHIER') {
-      setActiveTab("/pos");
-    } else {
-      setActiveTab("/");
-    }
-  };
-
-  const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem("boutique_user");
-    setActiveTab("/");
-  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -64,24 +36,6 @@ export default function App() {
     }
   };
 
-  // Filter nav items based on role
-  const getFilteredNavItems = () => {
-    if (!user) return [];
-    if (user.role === 'ADMIN') return NAV_ITEMS;
-    if (user.role === 'CASHIER') {
-      // Cashier sees everything EXCEPT Settings and maybe Reports?
-      // Let's restrict Settings only for now.
-      return NAV_ITEMS.filter(item => item.href !== '/settings');
-    }
-    return [];
-  };
-
-  const filteredNavItems = getFilteredNavItems();
-
-  if (!user) {
-    return <Login onLogin={handleLogin} />;
-  }
-
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans">
       {/* Sidebar - Desktop */}
@@ -93,7 +47,7 @@ export default function App() {
           </h1>
         </div>
         <nav className="flex-1 p-4 space-y-1">
-          {filteredNavItems.map((item) => (
+          {NAV_ITEMS.map((item) => (
             <button
               key={item.href}
               onClick={() => setActiveTab(item.href)}
@@ -108,23 +62,10 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <div className="p-4 border-t border-slate-100 space-y-4">
-          <div className="flex items-center gap-3 px-4">
-            <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600">
-              <UserIcon className="w-4 h-4" />
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-medium text-slate-900 truncate">{user.username}</p>
-              <p className="text-xs text-slate-500 truncate">{user.role === 'ADMIN' ? 'Administrateur' : 'Caissière'}</p>
-            </div>
+        <div className="p-4 border-t border-slate-100">
+          <div className="text-xs text-slate-400 text-center">
+            v1.0.0 • Mode Ouvert
           </div>
-          <button 
-            onClick={handleLogout}
-            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-            Déconnexion
-          </button>
         </div>
       </aside>
 
@@ -147,7 +88,7 @@ export default function App() {
         <div className="fixed inset-0 bg-slate-900/50 z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)}>
           <div className="absolute right-0 top-16 bottom-0 w-64 bg-white shadow-xl p-4 flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex-1 space-y-1">
-              {filteredNavItems.map((item) => (
+              {NAV_ITEMS.map((item) => (
                 <button
                   key={item.href}
                   onClick={() => {
@@ -164,25 +105,6 @@ export default function App() {
                   {item.title}
                 </button>
               ))}
-            </div>
-            
-            <div className="pt-4 border-t border-slate-100">
-              <div className="flex items-center gap-3 px-4 mb-4">
-                <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600">
-                  <UserIcon className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-900">{user.username}</p>
-                  <p className="text-xs text-slate-500">{user.role === 'ADMIN' ? 'Administrateur' : 'Caissière'}</p>
-                </div>
-              </div>
-              <button 
-                onClick={handleLogout}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                Déconnexion
-              </button>
             </div>
           </div>
         </div>
