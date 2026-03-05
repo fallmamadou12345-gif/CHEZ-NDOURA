@@ -23,6 +23,7 @@ export default function Inventory() {
     stock_quantity: "0",
     min_stock_threshold: "5",
     unit: "U",
+    image: "",
   });
 
   // Restock Form State
@@ -80,6 +81,7 @@ export default function Inventory() {
         stock_quantity: parseNumber(formData.stock_quantity),
         min_stock_threshold: parseNumber(formData.min_stock_threshold),
         unit: formData.unit,
+        image: formData.image,
       };
 
       console.log("Saving product payload:", payload);
@@ -94,7 +96,6 @@ export default function Inventory() {
       setIsModalOpen(false);
       setEditingProduct(null);
       resetForm();
-      alert("Produit enregistré avec succès !");
     } catch (error: any) {
       console.error("Save error:", error);
       alert(`Erreur lors de l'enregistrement: ${error.message || "Erreur inconnue"}`);
@@ -154,6 +155,7 @@ export default function Inventory() {
       stock_quantity: product.stock_quantity.toString(),
       min_stock_threshold: product.min_stock_threshold.toString(),
       unit: product.unit || "U",
+      image: product.image || "",
     });
     setIsModalOpen(true);
   };
@@ -174,6 +176,7 @@ export default function Inventory() {
       stock_quantity: "0",
       min_stock_threshold: "5",
       unit: "U",
+      image: "",
     });
   };
 
@@ -220,6 +223,7 @@ export default function Inventory() {
           <table className="w-full text-left">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider w-16">Img</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Produit</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Stock</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Prix Achat (Lot)</th>
@@ -232,6 +236,17 @@ export default function Inventory() {
             <tbody className="divide-y divide-slate-100">
               {filteredProducts.map((product) => (
                 <tr key={product.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden border border-slate-200">
+                      {product.image ? (
+                        <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-300">
+                          <PackagePlus className="w-5 h-5" />
+                        </div>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-6 py-4">
                     <div className="font-medium text-slate-900">{product.name}</div>
                     {product.sku && <div className="text-xs text-slate-400">{product.sku}</div>}
@@ -304,6 +319,25 @@ export default function Inventory() {
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Image du Produit (URL)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      placeholder="https://exemple.com/image.jpg"
+                      value={formData.image || ""}
+                      onChange={e => setFormData({...formData, image: e.target.value})}
+                      className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                    />
+                    {formData.image && (
+                      <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden border border-slate-200 shrink-0">
+                        <img src={formData.image} alt="Aperçu" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">Copiez le lien d'une image depuis Google Images ou autre.</p>
+                </div>
+
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Nom du produit</label>
                   <input

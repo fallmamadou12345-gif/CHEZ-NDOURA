@@ -1,14 +1,20 @@
-import { Download, Save, ShieldAlert, Upload, Cloud, HardDrive, Link, LogOut } from "lucide-react";
+import { Download, Save, ShieldAlert, Upload, Cloud, HardDrive, Link, LogOut, Users, UserPlus, Trash2 } from "lucide-react";
 import { storage } from "../services/storage";
 import React, { useRef, useState, useEffect } from "react";
+import { User } from "../types";
+import { useAuth } from "../context/AuthContext";
 
 // Check if Firebase is configured via Env (Render)
 const isEnvConfigured = !!import.meta.env.VITE_FIREBASE_API_KEY;
 
 export default function Settings() {
+  const { user: currentUser } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLocalConfigured, setIsLocalConfigured] = useState(false);
   const [showConfigForm, setShowConfigForm] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [newUser, setNewUser] = useState({ name: "", pin: "" });
+  const [adminPin, setAdminPin] = useState("");
   
   // Form State
   const [config, setConfig] = useState({
@@ -27,7 +33,66 @@ export default function Settings() {
       setIsLocalConfigured(true);
       setConfig(JSON.parse(localSettings));
     }
+    fetchUsers();
   }, []);
+
+  const fetchUsers = async () => {
+    const data = await storage.getUsers();
+    setUsers(data);
+  };
+
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUser.name || !newUser.pin) return;
+    if (newUser.pin.length !== 4) {
+      alert("Le code PIN doit faire 4 chiffres");
+      return;
+    }
+
+    try {
+      await storage.saveUser({
+        name: newUser.name,
+        pin: newUser.pin,
+        role: 'CASHIER'
+      });
+      setNewUser({ name: "", pin: "" });
+      fetchUsers();
+      alert("Caissier ajouté avec succès !");
+    } catch (error) {
+      alert("Erreur lors de l'ajout");
+    }
+  };
+
+  const handleUpdateAdminPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adminPin.length !== 4) {
+      alert("Le code PIN doit faire 4 chiffres");
+      return;
+    }
+    
+    // Find admin user
+    const adminUser = users.find(u => u.role === 'ADMIN');
+    if (adminUser) {
+      try {
+        await storage.updateUser(adminUser.id, { pin: adminPin });
+        alert("Code PIN Administrateur mis à jour !");
+        setAdminPin("");
+        fetchUsers();
+      } catch (error) {
+        alert("Erreur lors de la mise à jour");
+      }
+    } else {
+      // Should not happen if AuthContext creates default admin, but just in case
+      alert("Compte administrateur introuvable. Veuillez vous reconnecter.");
+    }
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    if (confirm("Supprimer cet utilisateur ?")) {
+      await storage.deleteUser(id);
+      fetchUsers();
+    }
+  };
 
   const isFirebaseActive = isEnvConfigured || isLocalConfigured;
 
@@ -148,6 +213,7 @@ export default function Settings() {
       {/* Cloud Configuration Form */}
       {showConfigForm && !isFirebaseActive && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-blue-100 ring-4 ring-blue-50/50">
+          {/* ... existing form ... */}
           <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
             <Cloud className="w-5 h-5 text-blue-600" />
             Configuration Firebase Cloud
@@ -237,6 +303,135 @@ export default function Settings() {
           </div>
         </div>
       )}
+
+      {/* User Management Section */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-3 bg-indigo-50 rounded-xl">
+            <Users className="w-6 h-6 text-indigo-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-900">Gestion des Utilisateurs</h3>
+            <p className="text-sm text-slate-500">Ajoutez des caissiers et gérez les accès</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Add User Form */}
+          <div className="md:col-span-1 space-y-6">
+            <div className="space-y-4">
+              <h4 className="font-medium text-slate-900 flex items-center gap-2">
+                <UserPlus className="w-4 h-4" />
+                Nouveau Caissier
+              </h4>
+              <form onSubmit={handleAddUser} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Nom</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={newUser.name}
+                    onChange={e => setNewUser({...newUser, name: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                    placeholder="Ex: Moussa"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Code PIN (4 chiffres)</label>
+                  <input 
+                    type="text" 
+                    required
+                    maxLength={4}
+                    pattern="\d{4}"
+                    value={newUser.pin}
+                    onChange={e => setNewUser({...newUser, pin: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-mono tracking-widest"
+                    placeholder="0000"
+                  />
+                </div>
+                <button 
+                  type="submit"
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-medium transition-colors text-sm"
+                >
+                  Ajouter
+                </button>
+              </form>
+            </div>
+
+            <div className="pt-6 border-t border-slate-100 space-y-4">
+              <h4 className="font-medium text-slate-900 flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-orange-500" />
+                Modifier PIN Admin
+              </h4>
+              <form onSubmit={handleUpdateAdminPin} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Nouveau Code PIN Admin</label>
+                  <input 
+                    type="text" 
+                    required
+                    maxLength={4}
+                    pattern="\d{4}"
+                    value={adminPin}
+                    onChange={e => setAdminPin(e.target.value)}
+                    className="w-full px-3 py-2 border border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none font-mono tracking-widest bg-orange-50/30"
+                    placeholder="Nouveau PIN"
+                  />
+                </div>
+                <button 
+                  type="submit"
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg font-medium transition-colors text-sm"
+                >
+                  Mettre à jour Admin
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* User List */}
+          <div className="md:col-span-2">
+            <h4 className="font-medium text-slate-900 mb-4">Utilisateurs Actifs</h4>
+            <div className="space-y-2">
+              {/* Always show Admin */}
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">A</div>
+                  <div>
+                    <div className="font-medium text-slate-900">Administrateur</div>
+                    <div className="text-xs text-slate-500">Accès Total • PIN: ****</div>
+                  </div>
+                </div>
+                <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">Admin</span>
+              </div>
+
+              {users.filter(u => u.role !== 'ADMIN').map(user => (
+                <div key={user.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">
+                      {user.name.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="font-medium text-slate-900">{user.name}</div>
+                      <div className="text-xs text-slate-500">Caissier • PIN: {user.pin}</div>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => handleDeleteUser(user.id)}
+                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+
+              {users.filter(u => u.role !== 'ADMIN').length === 0 && (
+                <div className="text-center py-6 text-slate-400 text-sm italic">
+                  Aucun caissier configuré.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Data Management */}

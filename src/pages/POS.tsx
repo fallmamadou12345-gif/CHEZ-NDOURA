@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Product } from "../types";
-import { Search, ShoppingCart, Check, Plus, Minus } from "lucide-react";
+import { Search, ShoppingCart, Check, Plus, Minus, ShoppingBag } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { storage } from "../services/storage";
 
@@ -128,21 +128,37 @@ export default function POS() {
                 key={product.id}
                 onClick={() => addToCart(product)}
                 disabled={product.stock_quantity <= 0}
-                className={`flex flex-col items-start p-4 rounded-xl border transition-all text-left ${
+                className={`flex flex-col items-start p-0 rounded-xl border transition-all text-left overflow-hidden ${
                   product.stock_quantity > 0
                     ? "border-slate-100 hover:border-indigo-500 hover:shadow-md bg-white"
                     : "border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed"
                 }`}
               >
-                <div className="font-semibold text-slate-900 line-clamp-2 mb-1">{product.name}</div>
-                <div className="text-xs text-slate-500 mb-2">{product.sku}</div>
-                <div className="mt-auto w-full flex justify-between items-end">
-                  <span className="font-bold text-indigo-600">{product.unit_sell_price.toLocaleString('fr-FR')} FCFA</span>
-                  <span className={`text-xs px-2 py-1 rounded-full ${
-                    product.stock_quantity > 5 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
-                  }`}>
-                    Stock: {product.stock_quantity} {product.unit}
-                  </span>
+                <div className="w-full aspect-[4/3] bg-slate-100 relative">
+                  {product.image ? (
+                    <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-300">
+                      <ShoppingBag className="w-8 h-8" />
+                    </div>
+                  )}
+                  {product.stock_quantity <= 0 && (
+                    <div className="absolute inset-0 bg-slate-900/50 flex items-center justify-center">
+                      <span className="text-white font-bold text-sm px-3 py-1 bg-red-500 rounded-full">Épuisé</span>
+                    </div>
+                  )}
+                </div>
+                <div className="p-4 w-full">
+                  <div className="font-semibold text-slate-900 line-clamp-2 mb-1 h-10 leading-tight">{product.name}</div>
+                  <div className="text-xs text-slate-500 mb-2">{product.sku || "Sans code"}</div>
+                  <div className="mt-auto w-full flex justify-between items-end">
+                    <span className="font-bold text-indigo-600">{product.unit_sell_price.toLocaleString('fr-FR')} FCFA</span>
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      product.stock_quantity > 5 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                    }`}>
+                      {product.stock_quantity} {product.unit}
+                    </span>
+                  </div>
                 </div>
               </button>
             ))}

@@ -19,6 +19,7 @@ const COLLECTIONS = {
   PRODUCTS: "products",
   TRANSACTIONS: "transactions",
   EXPENSES: "expenses",
+  USERS: "users",
 };
 
 // Check if Firebase is configured
@@ -29,6 +30,7 @@ const LS_KEYS = {
   PRODUCTS: "products",
   TRANSACTIONS: "transactions",
   EXPENSES: "expenses",
+  USERS: "users",
 };
 
 // Helper for Local Storage Events
@@ -37,6 +39,64 @@ const dispatchStorageEvent = (key: string) => {
 };
 
 export const storage = {
+  // --- Users ---
+  getUsers: async (): Promise<User[]> => {
+    if (isFirebaseConfigured && db) {
+      try {
+        const q = query(collection(db, COLLECTIONS.USERS));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as User));
+      } catch (error) {
+        console.error("Error getting users:", error);
+        return [];
+      }
+    } else {
+      const data = localStorage.getItem(LS_KEYS.USERS);
+      return data ? JSON.parse(data) : [];
+    }
+  },
+
+  saveUser: async (user: Omit<User, "id" | "created_at">): Promise<User> => {
+    const newUserData = {
+      ...user,
+      created_at: new Date().toISOString(),
+    };
+
+    if (isFirebaseConfigured && db) {
+      const docRef = await addDoc(collection(db, COLLECTIONS.USERS), newUserData);
+      return { id: docRef.id, ...newUserData } as unknown as User;
+    } else {
+      const users = await storage.getUsers();
+      const newUser = { id: Date.now().toString(), ...newUserData } as unknown as User;
+      users.push(newUser);
+      localStorage.setItem(LS_KEYS.USERS, JSON.stringify(users));
+      return newUser;
+    }
+  },
+
+  updateUser: async (id: string, updates: Partial<User>): Promise<void> => {
+    if (isFirebaseConfigured && db) {
+      await updateDoc(doc(db, COLLECTIONS.USERS, id), updates);
+    } else {
+      const users = await storage.getUsers();
+      const index = users.findIndex(u => u.id === id);
+      if (index !== -1) {
+        users[index] = { ...users[index], ...updates };
+        localStorage.setItem(LS_KEYS.USERS, JSON.stringify(users));
+      }
+    }
+  },
+
+  deleteUser: async (id: string): Promise<void> => {
+    if (isFirebaseConfigured && db) {
+      await deleteDoc(doc(db, COLLECTIONS.USERS, id));
+    } else {
+      const users = await storage.getUsers();
+      const newUsers = users.filter(u => u.id !== id);
+      localStorage.setItem(LS_KEYS.USERS, JSON.stringify(newUsers));
+    }
+  },
+
   // --- Products ---
   getProducts: async (): Promise<Product[]> => {
     if (isFirebaseConfigured && db) {
@@ -324,6 +384,7 @@ export const storage = {
       products: await storage.getProducts(),
       transactions: await storage.getTransactions(),
       expenses: await storage.getExpenses(),
+      users: await storage.getUsers(),
       timestamp: new Date().toISOString(),
     };
   },
@@ -336,6 +397,12 @@ export const storage = {
           await addDoc(collection(db, COLLECTIONS.PRODUCTS), rest);
         }
       }
+      if (data.users) {
+        for (const u of data.users) {
+          const { id, ...rest } = u;
+          await addDoc(collection(db, COLLECTIONS.USERS), rest);
+        }
+      }
       // ... (simplified for cloud import)
     } else {
       // Local Storage Import (Replace or Merge?)
@@ -343,6 +410,7 @@ export const storage = {
       if (data.products) localStorage.setItem(LS_KEYS.PRODUCTS, JSON.stringify(data.products));
       if (data.transactions) localStorage.setItem(LS_KEYS.TRANSACTIONS, JSON.stringify(data.transactions));
       if (data.expenses) localStorage.setItem(LS_KEYS.EXPENSES, JSON.stringify(data.expenses));
+      if (data.users) localStorage.setItem(LS_KEYS.USERS, JSON.stringify(data.users));
       
       dispatchStorageEvent(LS_KEYS.PRODUCTS);
       dispatchStorageEvent(LS_KEYS.TRANSACTIONS);
