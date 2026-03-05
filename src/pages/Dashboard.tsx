@@ -13,6 +13,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Initial load
     const loadStats = async () => {
       try {
         const data = await storage.getDashboardStats();
@@ -24,6 +25,29 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       }
     };
     loadStats();
+
+    // Subscribe to updates (products, transactions, expenses)
+    // We subscribe to all because dashboard stats depend on all of them
+    const unsubProducts = storage.subscribeProducts(async () => {
+      const data = await storage.getDashboardStats();
+      setStats(data);
+    });
+    
+    const unsubTransactions = storage.subscribeTransactions(async () => {
+      const data = await storage.getDashboardStats();
+      setStats(data);
+    });
+
+    const unsubExpenses = storage.subscribeExpenses(async () => {
+      const data = await storage.getDashboardStats();
+      setStats(data);
+    });
+
+    return () => {
+      unsubProducts();
+      unsubTransactions();
+      unsubExpenses();
+    };
   }, []);
 
   const StatCard = ({ title, value, icon: Icon, color, subtext, onClick }: any) => (

@@ -13,7 +13,7 @@ export interface NavItem {
 }
 
 export interface Product {
-  id: number;
+  id: number | string;
   name: string;
   sku: string;
   batch_price: number;
@@ -29,8 +29,8 @@ export interface Product {
 }
 
 export interface Transaction {
-  id: number;
-  product_id: number;
+  id: number | string;
+  product_id: number | string;
   type: 'PURCHASE' | 'SALE' | 'ADJUSTMENT';
   quantity: number;
   unit_price: number;
@@ -48,7 +48,7 @@ export interface DashboardStats {
 }
 
 export interface Expense {
-  id: number;
+  id: number | string;
   category: string;
   description: string;
   amount: number;

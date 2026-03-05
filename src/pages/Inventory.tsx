@@ -44,35 +44,62 @@ export default function Inventory() {
   };
 
   useEffect(() => {
+    // Initial fetch
     fetchProducts();
+
+    // Subscribe to real-time updates
+    const unsubscribe = storage.subscribeProducts((updatedProducts) => {
+      setProducts(updatedProducts);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const payload = {
-      name: formData.name,
-      sku: formData.sku,
-      batch_price: parseFloat(formData.batch_price),
-      batch_quantity: parseInt(formData.batch_quantity),
-      unit_sell_price: parseFloat(formData.unit_sell_price),
-      stock_quantity: parseFloat(formData.stock_quantity),
-      min_stock_threshold: parseFloat(formData.min_stock_threshold),
-      unit: formData.unit,
+    console.log("Form submitted");
+    setIsSubmitting(true);
+    
+    // Helper to parse numbers with comma support
+    const parseNumber = (val: string) => {
+      if (!val) return 0;
+      // Handle both comma and dot
+      return parseFloat(val.toString().replace(',', '.'));
     };
 
     try {
+      const payload = {
+        name: formData.name,
+        sku: formData.sku,
+        batch_price: parseNumber(formData.batch_price),
+        batch_quantity: parseInt(formData.batch_quantity) || 1,
+        unit_sell_price: parseNumber(formData.unit_sell_price),
+        stock_quantity: parseNumber(formData.stock_quantity),
+        min_stock_threshold: parseNumber(formData.min_stock_threshold),
+        unit: formData.unit,
+      };
+
+      console.log("Saving product payload:", payload);
+
       if (editingProduct) {
         await storage.updateProduct(editingProduct.id, payload);
       } else {
         await storage.saveProduct(payload);
       }
       
+      // Success
       setIsModalOpen(false);
       setEditingProduct(null);
       resetForm();
-      fetchProducts();
-    } catch (error) {
-      alert("Erreur lors de l'enregistrement");
+      alert("Produit enregistré avec succès !");
+    } catch (error: any) {
+      console.error("Save error:", error);
+      alert(`Erreur lors de l'enregistrement: ${error.message || "Erreur inconnue"}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -392,9 +419,12 @@ export default function Inventory() {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors shadow-sm"
+                  disabled={isSubmitting}
+                  className={`px-6 py-2 text-white rounded-lg font-medium transition-colors shadow-sm ${
+                    isSubmitting ? "bg-indigo-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700"
+                  }`}
                 >
-                  Enregistrer
+                  {isSubmitting ? "Enregistrement..." : "Enregistrer"}
                 </button>
               </div>
             </form>

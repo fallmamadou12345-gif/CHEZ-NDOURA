@@ -18,6 +18,14 @@ export default function POS() {
 
   useEffect(() => {
     fetchProducts();
+    
+    // Subscribe to real-time updates
+    const unsubscribe = storage.subscribeProducts((updatedProducts) => {
+      setProducts(updatedProducts);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const fetchProducts = async () => {
