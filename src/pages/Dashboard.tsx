@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { DashboardStats } from "../types";
 import { DollarSign, ShoppingBag, AlertTriangle, TrendingUp, TrendingDown, Wallet } from "lucide-react";
 import { motion } from "motion/react";
+import { storage } from "../services/storage";
 
 interface DashboardProps {
   onNavigate: (path: string) => void;
@@ -12,16 +13,17 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/stats")
-      .then((res) => res.json())
-      .then((data) => {
+    const loadStats = async () => {
+      try {
+        const data = await storage.getDashboardStats();
         setStats(data);
-        setLoading(false);
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error(err);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    loadStats();
   }, []);
 
   const StatCard = ({ title, value, icon: Icon, color, subtext, onClick }: any) => (

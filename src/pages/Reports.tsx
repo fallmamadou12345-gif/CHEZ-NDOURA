@@ -1,18 +1,24 @@
 import { useEffect, useState } from "react";
 import { PerformanceReport } from "../types";
 import { BarChart3, TrendingUp, Award } from "lucide-react";
+import { storage } from "../services/storage";
 
 export default function Reports() {
   const [report, setReport] = useState<PerformanceReport | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/reports/performance")
-      .then((res) => res.json())
-      .then((data) => {
+    const loadReport = async () => {
+      try {
+        const data = await storage.getPerformanceReport();
         setReport(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    loadReport();
   }, []);
 
   if (loading) return <div className="p-8 text-center text-slate-500">Chargement des rapports...</div>;

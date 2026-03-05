@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Product } from "../types";
 import { Search, ShoppingCart, Check, Plus, Minus } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { storage } from "../services/storage";
 
 interface CartItem extends Product {
   cartQuantity: number;
@@ -19,13 +20,14 @@ export default function POS() {
     fetchProducts();
   }, []);
 
-  const fetchProducts = () => {
-    fetch("/api/products")
-      .then((res) => res.json())
-      .then((data) => {
-        setProducts(data);
-        setLoading(false);
-      });
+  const fetchProducts = async () => {
+    try {
+      const data = await storage.getProducts();
+      setProducts(data);
+      setLoading(false);
+    } catch (error) {
+      console.error("Failed to fetch products", error);
+    }
   };
 
   const addToCart = (product: Product) => {
@@ -50,11 +52,6 @@ export default function POS() {
     setCart((prev) =>
       prev.map((item) => {
         if (item.id === productId) {
-          // Allow fractional updates if needed, but simple +/- 1 is safer for UI.
-          // For weight/volume, maybe we need an input?
-          // For now, let's keep +/- 1 but ensure it respects min 0.1 for non-units?
-          // Actually, let's just allow editing the quantity directly in a real app, 
-          // but here let's stick to simple increment.
           const newQty = Math.max(0.1, item.cartQuantity + delta);
           return { ...item, cartQuantity: parseFloat(newQty.toFixed(2)) };
         }
@@ -74,17 +71,12 @@ export default function POS() {
 
     try {
       // Process each item as a transaction
-      // In a real app, we might want a batch endpoint
       for (const item of cart) {
-        await fetch("/api/transactions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            product_id: item.id,
-            type: "SALE",
-            quantity: item.cartQuantity,
-            unit_price: item.unit_sell_price,
-          }),
+        await storage.saveTransaction({
+          product_id: item.id,
+          type: "SALE",
+          quantity: item.cartQuantity,
+          unit_price: item.unit_sell_price,
         });
       }
 

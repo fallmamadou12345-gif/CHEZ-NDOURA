@@ -2,6 +2,7 @@ import { useEffect, useState, FormEvent } from "react";
 import { Product } from "../types";
 import { Plus, Search, Edit2, Trash2, AlertCircle, PackagePlus } from "lucide-react";
 import { motion } from "motion/react";
+import { storage } from "../services/storage";
 
 export default function Inventory() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -30,13 +31,16 @@ export default function Inventory() {
     total_cost: "",
   });
 
-  const fetchProducts = () => {
-    fetch("/api/products")
-      .then((res) => res.json())
-      .then((data) => {
-        setProducts(data);
-        setLoading(false);
-      });
+  const fetchProducts = async () => {
+    setLoading(true);
+    try {
+      const data = await storage.getProducts();
+      setProducts(data);
+    } catch (error) {
+      console.error("Failed to fetch products", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -46,7 +50,8 @@ export default function Inventory() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const payload = {
-      ...formData,
+      name: formData.name,
+      sku: formData.sku,
       batch_price: parseFloat(formData.batch_price),
       batch_quantity: parseInt(formData.batch_quantity),
       unit_sell_price: parseFloat(formData.unit_sell_price),
@@ -55,21 +60,18 @@ export default function Inventory() {
       unit: formData.unit,
     };
 
-    const url = editingProduct ? `/api/products/${editingProduct.id}` : "/api/products";
-    const method = editingProduct ? "PUT" : "POST";
-
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (res.ok) {
+    try {
+      if (editingProduct) {
+        await storage.updateProduct(editingProduct.id, payload);
+      } else {
+        await storage.saveProduct(payload);
+      }
+      
       setIsModalOpen(false);
       setEditingProduct(null);
       resetForm();
       fetchProducts();
-    } else {
+    } catch (error) {
       alert("Erreur lors de l'enregistrement");
     }
   };
@@ -84,47 +86,18 @@ export default function Inventory() {
 
     try {
       // 1. Record the transaction (Stock IN)
-      const res = await fetch("/api/transactions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          product_id: restockProduct.id,
-          type: "PURCHASE",
-          quantity: quantity,
-          unit_price: unitCost, // Cost per unit for this batch
-        }),
+      await storage.saveTransaction({
+        product_id: restockProduct.id,
+        type: "PURCHASE",
+        quantity: quantity,
+        unit_price: unitCost,
       });
 
-      if (!res.ok) throw new Error("Transaction failed");
-
-      // 2. Update the product's reference batch price/qty to reflect the new batch
-      // This ensures future margin calculations use the most recent cost
-      await fetch(`/api/products/${restockProduct.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...restockProduct,
-          batch_price: totalCost,
-          batch_quantity: quantity,
-          // Stock is already updated by the transaction endpoint, but we need to pass other required fields
-          // Actually, the PUT endpoint expects all fields.
-          // Let's just update the batch info. The stock will be updated by the transaction.
-          // Wait, my PUT endpoint updates everything. I should be careful not to overwrite the stock 
-          // if the transaction already updated it.
-          // The transaction endpoint updates stock. 
-          // The PUT endpoint sets stock to whatever is passed.
-          // So I should fetch the latest product first? 
-          // Or simpler: The transaction endpoint handles stock. I only want to update the batch info.
-          // Let's rely on the transaction for stock, and then update the batch info with the NEW stock count?
-          // No, that's race-y.
-          // Let's just update the batch info. The stock is managed by the transaction.
-          // My PUT endpoint implementation:
-          // UPDATE products SET ... stock_quantity = ? ...
-          // If I pass the old stock, it will revert the transaction's stock update.
-          // I should probably improve the backend to allow partial updates or handle this better.
-          // For now, I will manually calculate the new stock and pass it to the PUT.
-          stock_quantity: restockProduct.stock_quantity + quantity,
-        }),
+      // 2. Update the product's reference batch price/qty
+      await storage.updateProduct(restockProduct.id, {
+        batch_price: totalCost,
+        batch_quantity: quantity,
+        // Stock is automatically updated by saveTransaction in storage service
       });
 
       setIsRestockModalOpen(false);
@@ -138,7 +111,7 @@ export default function Inventory() {
 
   const handleDelete = async (id: number) => {
     if (confirm("Êtes-vous sûr de vouloir supprimer ce produit ?")) {
-      await fetch(`/api/products/${id}`, { method: "DELETE" });
+      await storage.deleteProduct(id);
       fetchProducts();
     }
   };

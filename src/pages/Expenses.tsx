@@ -2,6 +2,7 @@ import { useEffect, useState, FormEvent } from "react";
 import { Expense } from "../types";
 import { Plus, Trash2, Receipt, Calendar, Tag } from "lucide-react";
 import { motion } from "motion/react";
+import { storage } from "../services/storage";
 
 const EXPENSE_CATEGORIES = [
   { id: "RENT", label: "Loyer" },
@@ -25,13 +26,14 @@ export default function Expenses() {
     date: new Date().toISOString().split('T')[0],
   });
 
-  const fetchExpenses = () => {
-    fetch("/api/expenses")
-      .then((res) => res.json())
-      .then((data) => {
-        setExpenses(data);
-        setLoading(false);
-      });
+  const fetchExpenses = async () => {
+    try {
+      const data = await storage.getExpenses();
+      setExpenses(data);
+      setLoading(false);
+    } catch (error) {
+      console.error("Failed to fetch expenses", error);
+    }
   };
 
   useEffect(() => {
@@ -41,17 +43,14 @@ export default function Expenses() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const payload = {
-      ...formData,
+      category: formData.category,
+      description: formData.description,
       amount: parseFloat(formData.amount),
+      date: formData.date,
     };
 
-    const res = await fetch("/api/expenses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (res.ok) {
+    try {
+      await storage.saveExpense(payload);
       setIsModalOpen(false);
       setFormData({
         category: "OTHER",
@@ -60,14 +59,14 @@ export default function Expenses() {
         date: new Date().toISOString().split('T')[0],
       });
       fetchExpenses();
-    } else {
+    } catch (error) {
       alert("Erreur lors de l'enregistrement");
     }
   };
 
   const handleDelete = async (id: number) => {
     if (confirm("Êtes-vous sûr de vouloir supprimer cette dépense ?")) {
-      await fetch(`/api/expenses/${id}`, { method: "DELETE" });
+      await storage.deleteExpense(id);
       fetchExpenses();
     }
   };

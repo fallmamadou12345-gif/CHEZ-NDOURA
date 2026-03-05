@@ -28,6 +28,16 @@ export interface Product {
   margin_percent?: number;
 }
 
+export interface Transaction {
+  id: number;
+  product_id: number;
+  type: 'PURCHASE' | 'SALE' | 'ADJUSTMENT';
+  quantity: number;
+  unit_price: number;
+  total_amount: number;
+  timestamp: string;
+}
+
 export interface DashboardStats {
   revenue: number;
   salesCount: number;
