@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { NAV_ITEMS } from "./constants";
 import { LayoutDashboard, Package, ShoppingCart, BarChart3, Menu, X, Lock, LogOut } from "lucide-react";
 import Dashboard from "./pages/Dashboard";

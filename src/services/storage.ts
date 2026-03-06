@@ -1,5 +1,6 @@
-import { Product, Transaction, Expense } from "../types";
+import { Product, Transaction, Expense, User } from "../types";
 import { db, isFirebaseReady } from "../lib/firebase";
+import { initialData } from "../data/initialData";
 import { 
   collection, 
   getDocs, 
@@ -52,7 +53,14 @@ export const storage = {
       }
     } else {
       const data = localStorage.getItem(LS_KEYS.USERS);
-      return data ? JSON.parse(data) : [];
+      if (data) {
+        return JSON.parse(data);
+      } else {
+        // Seed with initial data
+        const defaults = initialData.users || [];
+        localStorage.setItem(LS_KEYS.USERS, JSON.stringify(defaults));
+        return defaults as unknown as User[];
+      }
     }
   },
 
@@ -111,7 +119,14 @@ export const storage = {
     } else {
       // Local Storage
       const data = localStorage.getItem(LS_KEYS.PRODUCTS);
-      return data ? JSON.parse(data) : [];
+      if (data) {
+        return JSON.parse(data);
+      } else {
+        // Seed with initial data
+        const defaults = initialData.products || [];
+        localStorage.setItem(LS_KEYS.PRODUCTS, JSON.stringify(defaults));
+        return defaults as unknown as Product[];
+      }
     }
   },
 
@@ -128,7 +143,14 @@ export const storage = {
       // Local Storage Subscription
       const handler = () => {
         const data = localStorage.getItem(LS_KEYS.PRODUCTS);
-        callback(data ? JSON.parse(data) : []);
+        if (data) {
+          callback(JSON.parse(data));
+        } else {
+          // Seed if missing during subscription
+          const defaults = initialData.products || [];
+          localStorage.setItem(LS_KEYS.PRODUCTS, JSON.stringify(defaults));
+          callback(defaults as unknown as Product[]);
+        }
       };
       window.addEventListener(`storage-${LS_KEYS.PRODUCTS}`, handler);
       // Initial call
@@ -228,7 +250,13 @@ export const storage = {
       }
     } else {
       const data = localStorage.getItem(LS_KEYS.TRANSACTIONS);
-      return data ? JSON.parse(data) : [];
+      if (data) {
+        return JSON.parse(data);
+      } else {
+        const defaults = initialData.transactions || [];
+        localStorage.setItem(LS_KEYS.TRANSACTIONS, JSON.stringify(defaults));
+        return defaults as unknown as Transaction[];
+      }
     }
   },
 
@@ -244,7 +272,13 @@ export const storage = {
     } else {
       const handler = () => {
         const data = localStorage.getItem(LS_KEYS.TRANSACTIONS);
-        callback(data ? JSON.parse(data) : []);
+        if (data) {
+          callback(JSON.parse(data));
+        } else {
+          const defaults = initialData.transactions || [];
+          localStorage.setItem(LS_KEYS.TRANSACTIONS, JSON.stringify(defaults));
+          callback(defaults as unknown as Transaction[]);
+        }
       };
       window.addEventListener(`storage-${LS_KEYS.TRANSACTIONS}`, handler);
       handler();
@@ -311,6 +345,64 @@ export const storage = {
     }
   },
 
+  deleteTransaction: async (id: number | string): Promise<void> => {
+    if (isFirebaseConfigured && db) {
+      const transactionRef = doc(db, COLLECTIONS.TRANSACTIONS, String(id));
+      const transactionSnap = await getDoc(transactionRef);
+      
+      if (transactionSnap.exists()) {
+        const transaction = transactionSnap.data() as Transaction;
+        
+        // Revert stock
+        const productRef = doc(db, COLLECTIONS.PRODUCTS, String(transaction.product_id));
+        const productSnap = await getDoc(productRef);
+        
+        if (productSnap.exists()) {
+          const product = productSnap.data() as Product;
+          let newStock = product.stock_quantity;
+          
+          if (transaction.type === 'SALE') {
+            newStock += transaction.quantity; // Add back to stock
+          } else if (transaction.type === 'PURCHASE') {
+            newStock -= transaction.quantity; // Remove from stock
+          }
+          
+          await updateDoc(productRef, { stock_quantity: newStock });
+        }
+        
+        await deleteDoc(transactionRef);
+      }
+    } else {
+      const transactions = await storage.getTransactions();
+      const transaction = transactions.find(t => String(t.id) === String(id));
+      
+      if (transaction) {
+        // Revert stock
+        const products = await storage.getProducts();
+        const productIndex = products.findIndex(p => String(p.id) === String(transaction.product_id));
+        
+        if (productIndex !== -1) {
+          const product = products[productIndex];
+          let newStock = product.stock_quantity;
+          
+          if (transaction.type === 'SALE') {
+            newStock += transaction.quantity;
+          } else if (transaction.type === 'PURCHASE') {
+            newStock -= transaction.quantity;
+          }
+          
+          products[productIndex] = { ...product, stock_quantity: newStock };
+          localStorage.setItem(LS_KEYS.PRODUCTS, JSON.stringify(products));
+          dispatchStorageEvent(LS_KEYS.PRODUCTS);
+        }
+        
+        const newTransactions = transactions.filter(t => String(t.id) !== String(id));
+        localStorage.setItem(LS_KEYS.TRANSACTIONS, JSON.stringify(newTransactions));
+        dispatchStorageEvent(LS_KEYS.TRANSACTIONS);
+      }
+    }
+  },
+
   // --- Expenses ---
   getExpenses: async (): Promise<Expense[]> => {
     if (isFirebaseConfigured && db) {
@@ -324,7 +416,13 @@ export const storage = {
       }
     } else {
       const data = localStorage.getItem(LS_KEYS.EXPENSES);
-      return data ? JSON.parse(data) : [];
+      if (data) {
+        return JSON.parse(data);
+      } else {
+        const defaults = initialData.expenses || [];
+        localStorage.setItem(LS_KEYS.EXPENSES, JSON.stringify(defaults));
+        return defaults as unknown as Expense[];
+      }
     }
   },
 
@@ -340,7 +438,13 @@ export const storage = {
     } else {
       const handler = () => {
         const data = localStorage.getItem(LS_KEYS.EXPENSES);
-        callback(data ? JSON.parse(data) : []);
+        if (data) {
+          callback(JSON.parse(data));
+        } else {
+          const defaults = initialData.expenses || [];
+          localStorage.setItem(LS_KEYS.EXPENSES, JSON.stringify(defaults));
+          callback(defaults as unknown as Expense[]);
+        }
       };
       window.addEventListener(`storage-${LS_KEYS.EXPENSES}`, handler);
       handler();
@@ -391,19 +495,40 @@ export const storage = {
   
   importData: async (data: any) => {
     if (isFirebaseConfigured && db) {
-      if (data.products) {
+      // Import Products
+      if (data.products && Array.isArray(data.products)) {
         for (const p of data.products) {
           const { id, ...rest } = p; 
+          // Check if exists to avoid duplicates? Ideally yes, but for restore we might just add.
+          // For simplicity and speed requested by user, we add. 
+          // User said "restore", implies they might have lost data or want to copy.
           await addDoc(collection(db, COLLECTIONS.PRODUCTS), rest);
         }
       }
-      if (data.users) {
+      
+      // Import Users
+      if (data.users && Array.isArray(data.users)) {
         for (const u of data.users) {
           const { id, ...rest } = u;
           await addDoc(collection(db, COLLECTIONS.USERS), rest);
         }
       }
-      // ... (simplified for cloud import)
+
+      // Import Transactions
+      if (data.transactions && Array.isArray(data.transactions)) {
+        for (const t of data.transactions) {
+          const { id, ...rest } = t;
+          await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), rest);
+        }
+      }
+
+      // Import Expenses
+      if (data.expenses && Array.isArray(data.expenses)) {
+        for (const e of data.expenses) {
+          const { id, ...rest } = e;
+          await addDoc(collection(db, COLLECTIONS.EXPENSES), rest);
+        }
+      }
     } else {
       // Local Storage Import (Replace or Merge?)
       // Let's replace for simplicity as per user request usually
@@ -439,6 +564,11 @@ export const storage = {
     const grossProfit = revenue - cogs;
     const netProfit = grossProfit - totalExpenses;
     const lowStockCount = products.filter(p => p.stock_quantity <= p.min_stock_threshold).length;
+    
+    const totalStockValue = products.reduce((sum, p) => {
+      const cost = p.unit_cost || (p.batch_price / p.batch_quantity) || 0;
+      return sum + (p.stock_quantity * cost);
+    }, 0);
 
     return {
       revenue,
@@ -446,7 +576,8 @@ export const storage = {
       netProfit,
       totalExpenses,
       salesCount: sales.length,
-      lowStockCount
+      lowStockCount,
+      totalStockValue
     };
   },
 

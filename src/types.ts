@@ -1,9 +1,13 @@
 import { LucideIcon } from "lucide-react";
 
+export type Role = 'ADMIN' | 'CASHIER';
+
 export interface User {
-  id: number;
-  username: string;
-  role: 'ADMIN' | 'CASHIER';
+  id: string | number;
+  name: string;
+  role: Role;
+  pin?: string;
+  created_at?: string;
 }
 
 export interface NavItem {
@@ -26,6 +30,15 @@ export interface Product {
   unit_cost?: number;
   margin?: number;
   margin_percent?: number;
+  image?: string;
+  variants?: ProductVariant[];
+}
+
+export interface ProductVariant {
+  id: string;
+  name: string;
+  price: number;
+  stock_equivalent: number;
 }
 
 export interface Transaction {
@@ -45,6 +58,7 @@ export interface DashboardStats {
   grossProfit: number;
   totalExpenses: number;
   netProfit: number;
+  totalStockValue: number;
 }
 
 export interface Expense {

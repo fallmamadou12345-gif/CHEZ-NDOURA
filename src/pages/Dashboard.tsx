@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { DashboardStats } from "../types";
-import { DollarSign, ShoppingBag, AlertTriangle, TrendingUp, TrendingDown, Wallet } from "lucide-react";
+import { DollarSign, ShoppingBag, AlertTriangle, TrendingUp, TrendingDown, Wallet, Package } from "lucide-react";
 import { motion } from "motion/react";
 import { storage } from "../services/storage";
 
@@ -128,6 +128,14 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           icon={AlertTriangle}
           color="bg-amber-500"
           subtext="Produits sous le seuil d'alerte"
+          onClick={() => onNavigate('/inventory')}
+        />
+        <StatCard
+          title="Valeur du Stock"
+          value={`${stats?.totalStockValue.toLocaleString('fr-FR')} FCFA`}
+          icon={Package}
+          color="bg-cyan-500"
+          subtext="Valeur totale des produits en stock"
           onClick={() => onNavigate('/inventory')}
         />
       </div>

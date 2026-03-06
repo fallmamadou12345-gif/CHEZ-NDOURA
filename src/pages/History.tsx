@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Transaction } from "../types";
 import { storage } from "../services/storage";
-import { ArrowUpRight, ArrowDownLeft, Search, Calendar } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, Search, Calendar, Trash2, AlertCircle } from "lucide-react";
 
 export default function History() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -33,6 +33,17 @@ export default function History() {
 
     return () => unsubscribe();
   }, []);
+
+  const handleDelete = async (id: string | number, type: string) => {
+    if (confirm(`Êtes-vous sûr de vouloir annuler cette ${type === 'SALE' ? 'vente' : 'transaction'} ?\nLe stock sera automatiquement ajusté.`)) {
+      try {
+        await storage.deleteTransaction(id);
+        // No need to fetch, subscription handles it
+      } catch (error) {
+        alert("Erreur lors de l'annulation");
+      }
+    }
+  };
 
   const filteredTransactions = transactions.filter(t => {
     const matchesSearch = productsMap[String(t.product_id)]?.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -102,6 +113,7 @@ export default function History() {
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Quantité</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Prix Unitaire</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Total</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -136,6 +148,15 @@ export default function History() {
                   </td>
                   <td className="px-6 py-4 text-right font-bold text-slate-900">
                     {t.total_amount.toLocaleString('fr-FR')} FCFA
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button 
+                      onClick={() => handleDelete(t.id, t.type)}
+                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Annuler cette transaction"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </td>
                 </tr>
               ))}

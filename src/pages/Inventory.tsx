@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from "react";
-import { Product } from "../types";
-import { Plus, Search, Edit2, Trash2, AlertCircle, PackagePlus } from "lucide-react";
+import { Product, ProductVariant } from "../types";
+import { Plus, Search, Edit2, Trash2, AlertCircle, PackagePlus, X, Layers } from "lucide-react";
 import { motion } from "motion/react";
 import { storage } from "../services/storage";
 
@@ -24,6 +24,7 @@ export default function Inventory() {
     min_stock_threshold: "5",
     unit: "U",
     image: "",
+    variants: [] as ProductVariant[],
   });
 
   // Restock Form State
@@ -82,6 +83,7 @@ export default function Inventory() {
         min_stock_threshold: parseNumber(formData.min_stock_threshold),
         unit: formData.unit,
         image: formData.image,
+        variants: formData.variants || [],
       };
 
       console.log("Saving product payload:", payload);
@@ -156,6 +158,7 @@ export default function Inventory() {
       min_stock_threshold: product.min_stock_threshold.toString(),
       unit: product.unit || "U",
       image: product.image || "",
+      variants: product.variants || [],
     });
     setIsModalOpen(true);
   };
@@ -177,6 +180,7 @@ export default function Inventory() {
       min_stock_threshold: "5",
       unit: "U",
       image: "",
+      variants: [],
     });
   };
 
@@ -307,9 +311,9 @@ export default function Inventory() {
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden"
+            className="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]"
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
               <h3 className="text-lg font-bold text-slate-900">
                 {editingProduct ? "Modifier le produit" : "Nouveau produit"}
               </h3>
@@ -317,7 +321,7 @@ export default function Inventory() {
                 <span className="text-2xl">&times;</span>
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Image du Produit (URL)</label>
@@ -416,6 +420,97 @@ export default function Inventory() {
                        </span>
                      </p>
                   </div>
+                </div>
+              </div>
+
+              {/* Variants Section */}
+              <div className="p-4 bg-indigo-50 rounded-xl space-y-4 border border-indigo-100">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-indigo-600" />
+                    Autres Formats de Vente
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newVariant: ProductVariant = {
+                        id: Date.now().toString(),
+                        name: "",
+                        price: 0,
+                        stock_equivalent: 0
+                      };
+                      setFormData({ ...formData, variants: [...(formData.variants || []), newVariant] });
+                    }}
+                    className="text-xs bg-white border border-indigo-200 text-indigo-700 px-2 py-1 rounded-lg hover:bg-indigo-50 transition-colors"
+                  >
+                    + Ajouter un format
+                  </button>
+                </div>
+                
+                {(!formData.variants || formData.variants.length === 0) && (
+                  <p className="text-xs text-slate-400 italic">
+                    Aucun format supplémentaire (ex: Tas, Unité, Sachet...). Le produit sera vendu par défaut à l'unité de base ({formData.unit}).
+                  </p>
+                )}
+
+                <div className="space-y-3">
+                  {formData.variants?.map((variant, index) => (
+                    <div key={variant.id} className="flex gap-2 items-start bg-white p-2 rounded-lg border border-indigo-100">
+                      <div className="flex-1">
+                        <label className="block text-[10px] font-medium text-slate-500 mb-1">Nom du format</label>
+                        <input
+                          type="text"
+                          placeholder="Ex: Tas de 3"
+                          value={variant.name}
+                          onChange={(e) => {
+                            const newVariants = [...(formData.variants || [])];
+                            newVariants[index].name = e.target.value;
+                            setFormData({ ...formData, variants: newVariants });
+                          }}
+                          className="w-full px-2 py-1 text-sm border border-slate-200 rounded focus:border-indigo-500 outline-none"
+                        />
+                      </div>
+                      <div className="w-24">
+                        <label className="block text-[10px] font-medium text-slate-500 mb-1">Prix Vente</label>
+                        <input
+                          type="number"
+                          placeholder="300"
+                          value={variant.price}
+                          onChange={(e) => {
+                            const newVariants = [...(formData.variants || [])];
+                            newVariants[index].price = parseFloat(e.target.value) || 0;
+                            setFormData({ ...formData, variants: newVariants });
+                          }}
+                          className="w-full px-2 py-1 text-sm border border-slate-200 rounded focus:border-indigo-500 outline-none font-bold text-indigo-600"
+                        />
+                      </div>
+                      <div className="w-24">
+                        <label className="block text-[10px] font-medium text-slate-500 mb-1">Qté retirée ({formData.unit})</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.5"
+                          value={variant.stock_equivalent}
+                          onChange={(e) => {
+                            const newVariants = [...(formData.variants || [])];
+                            newVariants[index].stock_equivalent = parseFloat(e.target.value) || 0;
+                            setFormData({ ...formData, variants: newVariants });
+                          }}
+                          className="w-full px-2 py-1 text-sm border border-slate-200 rounded focus:border-indigo-500 outline-none"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newVariants = formData.variants?.filter((_, i) => i !== index);
+                          setFormData({ ...formData, variants: newVariants });
+                        }}
+                        className="mt-5 p-1 text-slate-400 hover:text-red-500"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
 

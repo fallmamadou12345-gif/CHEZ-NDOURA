@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { User, ShieldCheck, Store, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
