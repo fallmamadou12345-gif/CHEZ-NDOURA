@@ -287,10 +287,15 @@ export const storage = {
   },
 
   saveTransaction: async (transaction: Omit<Transaction, "id" | "timestamp" | "total_amount">): Promise<Transaction> => {
+    const qty = Number(transaction.quantity) || 0;
+    const price = Number(transaction.unit_price) || 0;
+    
     const newTransactionData = {
       ...transaction,
+      quantity: qty,
+      unit_price: price,
       timestamp: new Date().toISOString(),
-      total_amount: transaction.quantity * transaction.unit_price,
+      total_amount: qty * price,
     };
     
     if (isFirebaseConfigured && db) {
@@ -550,14 +555,26 @@ export const storage = {
     const products = await storage.getProducts();
 
     const sales = transactions.filter(t => t.type === 'SALE');
-    const revenue = sales.reduce((sum, t) => sum + t.total_amount, 0);
-    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const revenue = sales.reduce((sum, t) => {
+      const amount = Number(t.total_amount);
+      return sum + (isNaN(amount) ? 0 : amount);
+    }, 0);
+    
+    const totalExpenses = expenses.reduce((sum, e) => {
+      const amount = Number(e.amount);
+      return sum + (isNaN(amount) ? 0 : amount);
+    }, 0);
     
     let cogs = 0;
     sales.forEach(sale => {
       const product = products.find(p => String(p.id) === String(sale.product_id));
-      if (product && product.unit_cost) {
-        cogs += product.unit_cost * sale.quantity;
+      if (product) {
+        const cost = Number(product.unit_cost) || (Number(product.batch_price) / Number(product.batch_quantity)) || 0;
+        const qty = Number(sale.quantity) || 0;
+        const itemCogs = cost * qty;
+        if (!isNaN(itemCogs)) {
+          cogs += itemCogs;
+        }
       }
     });
 
@@ -566,18 +583,20 @@ export const storage = {
     const lowStockCount = products.filter(p => p.stock_quantity <= p.min_stock_threshold).length;
     
     const totalStockValue = products.reduce((sum, p) => {
-      const cost = p.unit_cost || (p.batch_price / p.batch_quantity) || 0;
-      return sum + (p.stock_quantity * cost);
+      const cost = Number(p.unit_cost) || (Number(p.batch_price) / Number(p.batch_quantity)) || 0;
+      const qty = Number(p.stock_quantity) || 0;
+      const val = qty * cost;
+      return sum + (isNaN(val) ? 0 : val);
     }, 0);
 
     return {
-      revenue,
-      grossProfit,
-      netProfit,
-      totalExpenses,
+      revenue: isNaN(revenue) ? 0 : revenue,
+      grossProfit: isNaN(grossProfit) ? 0 : grossProfit,
+      netProfit: isNaN(netProfit) ? 0 : netProfit,
+      totalExpenses: isNaN(totalExpenses) ? 0 : totalExpenses,
       salesCount: sales.length,
       lowStockCount,
-      totalStockValue
+      totalStockValue: isNaN(totalStockValue) ? 0 : totalStockValue
     };
   },
 
