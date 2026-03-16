@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { DashboardStats } from "../types";
-import { DollarSign, ShoppingBag, AlertTriangle, TrendingUp, TrendingDown, Wallet, Package } from "lucide-react";
+import { DollarSign, ShoppingBag, AlertTriangle, TrendingUp, TrendingDown, Wallet, Package, Banknote, Smartphone } from "lucide-react";
 import { motion } from "motion/react";
 import { storage } from "../services/storage";
 
@@ -50,7 +50,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     };
   }, []);
 
-  const StatCard = ({ title, value, icon: Icon, color, subtext, onClick }: any) => (
+  const StatCard = ({ title, value, icon: Icon, imageUrl, color, subtext, onClick }: any) => (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -65,8 +65,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           <h3 className="text-2xl font-bold text-slate-900">{value}</h3>
           {subtext && <p className="text-xs text-slate-400 mt-2">{subtext}</p>}
         </div>
-        <div className={`p-3 rounded-xl ${color}`}>
-          <Icon className="w-6 h-6 text-white" />
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${imageUrl ? 'bg-transparent' : color}`}>
+          {imageUrl ? (
+            <img src={imageUrl} alt={title} className="w-full h-full rounded-xl object-cover shadow-sm" referrerPolicy="no-referrer" />
+          ) : Icon ? (
+            <Icon className="w-6 h-6 text-white" />
+          ) : null}
         </div>
       </div>
     </motion.div>
@@ -138,6 +142,33 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           subtext="Valeur totale des produits en stock"
           onClick={() => onNavigate('/inventory')}
         />
+      </div>
+
+      <div>
+        <h3 className="text-lg font-bold text-slate-900 mb-4">Caisse par Mode de Paiement</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <StatCard
+            title="Caisse Espèces"
+            value={`${stats?.totalCash.toLocaleString('fr-FR')} FCFA`}
+            icon={Banknote}
+            color="bg-emerald-600"
+            subtext="Total des ventes en espèces"
+          />
+          <StatCard
+            title="Caisse Wave"
+            value={`${stats?.totalWave.toLocaleString('fr-FR')} FCFA`}
+            imageUrl="https://play-lh.googleusercontent.com/B2sfLVgRWgV_bk5rtF51w6AieJWXc0qWbyWoaA8pMNp-is41AmvhJYVr95Dq9hT97Es"
+            color="bg-blue-500"
+            subtext="Total des paiements Wave"
+          />
+          <StatCard
+            title="Caisse Orange Money"
+            value={`${stats?.totalOrangeMoney.toLocaleString('fr-FR')} FCFA`}
+            imageUrl="https://play-lh.googleusercontent.com/VGOxVRf_AtRYSFbYCr1qZ-eZDDldQxt8dpjQ62MFpoS9JXK-f2l1DIKxjt8TJ8MX-txu"
+            color="bg-orange-500"
+            subtext="Total des paiements Orange Money"
+          />
+        </div>
       </div>
 
       {/* Quick Actions or Recent Activity could go here */}

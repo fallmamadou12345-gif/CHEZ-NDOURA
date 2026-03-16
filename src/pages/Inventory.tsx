@@ -134,8 +134,8 @@ export default function Inventory() {
       setRestockProduct(null);
       setRestockData({ quantity: "", total_cost: "" });
       fetchProducts();
-    } catch (error) {
-      alert("Erreur lors du réapprovisionnement");
+    } catch (error: any) {
+      alert(`Erreur lors du réapprovisionnement: ${error.message || "Erreur inconnue"}`);
     }
   };
 

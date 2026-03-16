@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Product } from "../types";
+import { Product, PaymentMethod } from "../types";
 import { Search, ShoppingCart, Check, Plus, Minus, ShoppingBag } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { storage } from "../services/storage";
@@ -23,6 +23,7 @@ export default function POS() {
   // Checkout State
   const [amountReceived, setAmountReceived] = useState("");
   const [changeDue, setChangeDue] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
 
   // Calculate change due when amount received changes
   useEffect(() => {
@@ -137,6 +138,18 @@ export default function POS() {
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
+    
+    // Validate cart items before proceeding
+    const hasInvalidItems = cart.some(item => 
+      isNaN(item.sellPrice) || item.sellPrice < 0 || 
+      isNaN(item.cartQuantity) || item.cartQuantity <= 0
+    );
+    
+    if (hasInvalidItems) {
+      alert("Erreur: Un ou plusieurs articles ont une quantité ou un prix invalide. La vente est refusée.");
+      return;
+    }
+
     setProcessing(true);
 
     try {
@@ -147,6 +160,7 @@ export default function POS() {
           type: "SALE",
           quantity: item.cartQuantity * item.stockDeduction, // Deduct actual stock amount
           unit_price: item.sellPrice / item.stockDeduction, // Unit price relative to stock unit
+          payment_method: paymentMethod,
         });
       }
 
@@ -158,8 +172,8 @@ export default function POS() {
         setSuccess(false);
         setProcessing(false);
       }, 2000);
-    } catch (error) {
-      alert("Erreur lors de la transaction");
+    } catch (error: any) {
+      alert(error.message || "Erreur lors de la transaction. La vente a été annulée.");
       setProcessing(false);
     }
   };
@@ -311,7 +325,12 @@ export default function POS() {
                 onChange={(e) => setQuantityInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && quantityInput) {
-                    addToCart(selectedProductForQuantity, undefined, parseFloat(quantityInput));
+                    const val = parseFloat(quantityInput);
+                    if (isNaN(val) || val <= 0) {
+                      alert("Veuillez entrer une quantité valide supérieure à 0.");
+                      return;
+                    }
+                    addToCart(selectedProductForQuantity, undefined, val);
                   }
                 }}
                 className="w-full px-4 py-3 text-2xl text-center border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-slate-900"
@@ -319,7 +338,12 @@ export default function POS() {
               <button
                 onClick={() => {
                   if (quantityInput) {
-                    addToCart(selectedProductForQuantity, undefined, parseFloat(quantityInput));
+                    const val = parseFloat(quantityInput);
+                    if (isNaN(val) || val <= 0) {
+                      alert("Veuillez entrer une quantité valide supérieure à 0.");
+                      return;
+                    }
+                    addToCart(selectedProductForQuantity, undefined, val);
                   }
                 }}
                 disabled={!quantityInput}
@@ -422,34 +446,65 @@ export default function POS() {
               <span className="text-3xl font-bold text-slate-900">{totalAmount.toLocaleString('fr-FR')} FCFA</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Reçu</label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={amountReceived}
-                  onChange={(e) => setAmountReceived(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-slate-900"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Monnaie</label>
-                <div className={`w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg font-bold ${changeDue > 0 ? "text-emerald-600" : "text-slate-400"}`}>
-                  {changeDue.toLocaleString('fr-FR')}
-                </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-2">Mode de paiement</label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => setPaymentMethod('CASH')}
+                  className={`py-2 flex flex-col items-center justify-center gap-1 text-xs font-bold rounded-lg border transition-colors ${paymentMethod === 'CASH' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                >
+                  <div className="w-8 h-8 flex items-center justify-center bg-emerald-100 text-emerald-600 rounded-full mb-1">
+                    <span className="text-lg font-bold">💵</span>
+                  </div>
+                  Espèces
+                </button>
+                <button
+                  onClick={() => setPaymentMethod('WAVE')}
+                  className={`py-2 flex flex-col items-center justify-center gap-1 text-xs font-bold rounded-lg border transition-colors ${paymentMethod === 'WAVE' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                >
+                  <img src="https://play-lh.googleusercontent.com/B2sfLVgRWgV_bk5rtF51w6AieJWXc0qWbyWoaA8pMNp-is41AmvhJYVr95Dq9hT97Es" alt="Wave" className="w-8 h-8 rounded-md object-cover mb-1" referrerPolicy="no-referrer" />
+                  Wave
+                </button>
+                <button
+                  onClick={() => setPaymentMethod('ORANGE_MONEY')}
+                  className={`py-2 flex flex-col items-center justify-center gap-1 text-xs font-bold rounded-lg border transition-colors ${paymentMethod === 'ORANGE_MONEY' ? 'bg-orange-50 border-orange-500 text-orange-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                >
+                  <img src="https://play-lh.googleusercontent.com/VGOxVRf_AtRYSFbYCr1qZ-eZDDldQxt8dpjQ62MFpoS9JXK-f2l1DIKxjt8TJ8MX-txu" alt="Orange Money" className="w-8 h-8 rounded-md object-cover mb-1" referrerPolicy="no-referrer" />
+                  Orange M.
+                </button>
               </div>
             </div>
+
+            {paymentMethod === 'CASH' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Reçu</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={amountReceived}
+                    onChange={(e) => setAmountReceived(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Monnaie</label>
+                  <div className={`w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg font-bold ${changeDue > 0 ? "text-emerald-600" : "text-slate-400"}`}>
+                    {changeDue.toLocaleString('fr-FR')}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           
           <button
             onClick={handleCheckout}
-            disabled={cart.length === 0 || processing || (amountReceived !== "" && parseFloat(amountReceived) < totalAmount)}
+            disabled={cart.length === 0 || processing || (paymentMethod === 'CASH' && amountReceived !== "" && parseFloat(amountReceived) < totalAmount)}
             className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all ${
               success 
                 ? "bg-emerald-500 text-white"
                 : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200"
-            } ${processing || cart.length === 0 || (amountReceived !== "" && parseFloat(amountReceived) < totalAmount) ? "opacity-50 cursor-not-allowed" : ""}`}
+            } ${processing || cart.length === 0 || (paymentMethod === 'CASH' && amountReceived !== "" && parseFloat(amountReceived) < totalAmount) ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             {processing ? (
               "Traitement..."

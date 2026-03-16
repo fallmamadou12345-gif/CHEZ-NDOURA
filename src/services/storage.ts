@@ -160,6 +160,37 @@ export const storage = {
   },
 
   saveProduct: async (product: Omit<Product, "id" | "created_at">): Promise<Product> => {
+    // Validate product data
+    if (!product.name || product.name.trim() === "") throw new Error("Le nom du produit est requis.");
+    if (isNaN(Number(product.unit_sell_price)) || Number(product.unit_sell_price) < 0) throw new Error("Prix de vente invalide.");
+    if (isNaN(Number(product.batch_quantity)) || Number(product.batch_quantity) <= 0) throw new Error("Quantité du lot invalide.");
+    if (isNaN(Number(product.batch_price)) || Number(product.batch_price) < 0) throw new Error("Prix d'achat du lot invalide.");
+    if (isNaN(Number(product.stock_quantity)) || Number(product.stock_quantity) < 0) throw new Error("Quantité en stock invalide.");
+    if (isNaN(Number(product.min_stock_threshold)) || Number(product.min_stock_threshold) < 0) throw new Error("Seuil d'alerte invalide.");
+
+    // Validate variants if they exist
+    if (product.variants) {
+      for (const variant of product.variants) {
+        if (!variant.name || variant.name.trim() === "") throw new Error("Le nom du format est requis.");
+        if (isNaN(Number(variant.price)) || Number(variant.price) < 0) throw new Error(`Prix invalide pour le format: ${variant.name}`);
+        if (isNaN(Number(variant.stock_equivalent)) || Number(variant.stock_equivalent) <= 0) throw new Error(`Quantité retirée invalide pour le format: ${variant.name}`);
+      }
+    }
+
+    const unitCost = Number(product.batch_price) / Number(product.batch_quantity);
+    if (Number(product.unit_sell_price) < unitCost) {
+      throw new Error(`Marge négative interdite. Le prix de vente (${product.unit_sell_price}) est inférieur au coût unitaire (${unitCost.toFixed(2)}).`);
+    }
+
+    if (product.variants) {
+      for (const variant of product.variants) {
+        const variantCost = unitCost * Number(variant.stock_equivalent);
+        if (Number(variant.price) < variantCost) {
+          throw new Error(`Marge négative interdite pour le format "${variant.name}". Prix: ${variant.price}, Coût: ${variantCost.toFixed(2)}.`);
+        }
+      }
+    }
+
     const newProductData = {
       ...product,
       created_at: new Date().toISOString(),
@@ -184,20 +215,50 @@ export const storage = {
   },
 
   updateProduct: async (id: number | string, updates: Partial<Product>): Promise<Product> => {
+    // Validate updates if they exist
+    if (updates.name !== undefined && updates.name.trim() === "") throw new Error("Le nom du produit ne peut pas être vide.");
+    if (updates.unit_sell_price !== undefined && (isNaN(Number(updates.unit_sell_price)) || Number(updates.unit_sell_price) < 0)) throw new Error("Prix de vente invalide.");
+    if (updates.batch_quantity !== undefined && (isNaN(Number(updates.batch_quantity)) || Number(updates.batch_quantity) <= 0)) throw new Error("Quantité du lot invalide.");
+    if (updates.batch_price !== undefined && (isNaN(Number(updates.batch_price)) || Number(updates.batch_price) < 0)) throw new Error("Prix d'achat du lot invalide.");
+    if (updates.stock_quantity !== undefined && (isNaN(Number(updates.stock_quantity)) || Number(updates.stock_quantity) < 0)) throw new Error("Quantité en stock invalide.");
+    
+    if (updates.variants) {
+      for (const variant of updates.variants) {
+        if (!variant.name || variant.name.trim() === "") throw new Error("Le nom du format est requis.");
+        if (isNaN(Number(variant.price)) || Number(variant.price) < 0) throw new Error(`Prix invalide pour le format: ${variant.name}`);
+        if (isNaN(Number(variant.stock_equivalent)) || Number(variant.stock_equivalent) <= 0) throw new Error(`Quantité retirée invalide pour le format: ${variant.name}`);
+      }
+    }
+
     if (isFirebaseConfigured && db) {
       const productRef = doc(db, COLLECTIONS.PRODUCTS, String(id));
       
       // Recalculate derived fields if price/qty changed in updates
       const derivedUpdates: any = { ...updates };
-      if (updates.batch_price !== undefined || updates.batch_quantity !== undefined || updates.unit_sell_price !== undefined) {
-         const snapshot = await getDoc(productRef);
-         if (snapshot.exists()) {
-           const current = snapshot.data() as Product;
-           const merged = { ...current, ...updates };
-           derivedUpdates.unit_cost = merged.batch_price / merged.batch_quantity;
-           derivedUpdates.margin = merged.unit_sell_price - merged.unit_cost;
-           derivedUpdates.margin_percent = (merged.margin / merged.unit_sell_price) * 100;
-         }
+      const snapshot = await getDoc(productRef);
+      if (snapshot.exists()) {
+        const current = snapshot.data() as Product;
+        const merged = { ...current, ...updates };
+        
+        // Validate margin
+        const unitCost = Number(merged.batch_price) / Number(merged.batch_quantity);
+        if (Number(merged.unit_sell_price) < unitCost) {
+          throw new Error(`Marge négative interdite. Le prix de vente (${merged.unit_sell_price}) est inférieur au coût unitaire (${unitCost.toFixed(2)}).`);
+        }
+        if (merged.variants) {
+          for (const variant of merged.variants) {
+            const variantCost = unitCost * Number(variant.stock_equivalent);
+            if (Number(variant.price) < variantCost) {
+              throw new Error(`Marge négative interdite pour le format "${variant.name}". Prix: ${variant.price}, Coût: ${variantCost.toFixed(2)}.`);
+            }
+          }
+        }
+
+        if (updates.batch_price !== undefined || updates.batch_quantity !== undefined || updates.unit_sell_price !== undefined) {
+          derivedUpdates.unit_cost = merged.batch_price / merged.batch_quantity;
+          derivedUpdates.margin = merged.unit_sell_price - merged.unit_cost;
+          derivedUpdates.margin_percent = (merged.margin / merged.unit_sell_price) * 100;
+        }
       }
   
       await updateDoc(productRef, derivedUpdates);
@@ -210,6 +271,20 @@ export const storage = {
         const current = products[index];
         const merged = { ...current, ...updates };
         
+        // Validate margin
+        const unitCost = Number(merged.batch_price) / Number(merged.batch_quantity);
+        if (Number(merged.unit_sell_price) < unitCost) {
+          throw new Error(`Marge négative interdite. Le prix de vente (${merged.unit_sell_price}) est inférieur au coût unitaire (${unitCost.toFixed(2)}).`);
+        }
+        if (merged.variants) {
+          for (const variant of merged.variants) {
+            const variantCost = unitCost * Number(variant.stock_equivalent);
+            if (Number(variant.price) < variantCost) {
+              throw new Error(`Marge négative interdite pour le format "${variant.name}". Prix: ${variant.price}, Coût: ${variantCost.toFixed(2)}.`);
+            }
+          }
+        }
+
         // Recalculate derived
         if (updates.batch_price !== undefined || updates.batch_quantity !== undefined || updates.unit_sell_price !== undefined) {
           merged.unit_cost = merged.batch_price / merged.batch_quantity;
@@ -287,8 +362,15 @@ export const storage = {
   },
 
   saveTransaction: async (transaction: Omit<Transaction, "id" | "timestamp" | "total_amount">): Promise<Transaction> => {
-    const qty = Number(transaction.quantity) || 0;
-    const price = Number(transaction.unit_price) || 0;
+    const qty = Number(transaction.quantity);
+    const price = Number(transaction.unit_price);
+    
+    if (isNaN(qty) || qty <= 0) {
+      throw new Error("Erreur: Quantité invalide. La transaction a été refusée.");
+    }
+    if (isNaN(price) || price < 0) {
+      throw new Error("Erreur: Prix invalide. La transaction a été refusée.");
+    }
     
     const newTransactionData = {
       ...transaction,
@@ -296,6 +378,7 @@ export const storage = {
       unit_price: price,
       timestamp: new Date().toISOString(),
       total_amount: qty * price,
+      payment_method: transaction.payment_method || 'CASH',
     };
     
     if (isFirebaseConfigured && db) {
@@ -555,9 +638,20 @@ export const storage = {
     const products = await storage.getProducts();
 
     const sales = transactions.filter(t => t.type === 'SALE');
+    
+    let totalCash = 0;
+    let totalWave = 0;
+    let totalOrangeMoney = 0;
+
     const revenue = sales.reduce((sum, t) => {
       const amount = Number(t.total_amount);
-      return sum + (isNaN(amount) ? 0 : amount);
+      const validAmount = isNaN(amount) ? 0 : amount;
+      
+      if (t.payment_method === 'WAVE') totalWave += validAmount;
+      else if (t.payment_method === 'ORANGE_MONEY') totalOrangeMoney += validAmount;
+      else totalCash += validAmount;
+      
+      return sum + validAmount;
     }, 0);
     
     const totalExpenses = expenses.reduce((sum, e) => {
@@ -596,7 +690,10 @@ export const storage = {
       totalExpenses: isNaN(totalExpenses) ? 0 : totalExpenses,
       salesCount: sales.length,
       lowStockCount,
-      totalStockValue: isNaN(totalStockValue) ? 0 : totalStockValue
+      totalStockValue: isNaN(totalStockValue) ? 0 : totalStockValue,
+      totalCash,
+      totalWave,
+      totalOrangeMoney
     };
   },
 

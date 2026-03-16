@@ -41,6 +41,8 @@ export interface ProductVariant {
   stock_equivalent: number;
 }
 
+export type PaymentMethod = 'CASH' | 'WAVE' | 'ORANGE_MONEY';
+
 export interface Transaction {
   id: number | string;
   product_id: number | string;
@@ -49,6 +51,7 @@ export interface Transaction {
   unit_price: number;
   total_amount: number;
   timestamp: string;
+  payment_method?: PaymentMethod;
 }
 
 export interface DashboardStats {
@@ -59,6 +62,9 @@ export interface DashboardStats {
   totalExpenses: number;
   netProfit: number;
   totalStockValue: number;
+  totalCash: number;
+  totalWave: number;
+  totalOrangeMoney: number;
 }
 
 export interface Expense {
