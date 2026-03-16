@@ -29,7 +29,7 @@ export default function POS() {
   useEffect(() => {
     if (amountReceived) {
       const received = parseFloat(amountReceived);
-      const total = cart.reduce((sum, item) => sum + item.sellPrice * item.cartQuantity, 0);
+      const total = cart.reduce((sum, item) => sum + (Number(item.sellPrice) || 0) * (Number(item.cartQuantity) || 0), 0);
       setChangeDue(Math.max(0, received - total));
     } else {
       setChangeDue(0);
@@ -132,7 +132,7 @@ export default function POS() {
   };
 
   const totalAmount = cart.reduce(
-    (sum, item) => sum + item.sellPrice * item.cartQuantity,
+    (sum, item) => sum + (Number(item.sellPrice) || 0) * (Number(item.cartQuantity) || 0),
     0
   );
 
@@ -141,8 +141,8 @@ export default function POS() {
     
     // Validate cart items before proceeding
     const hasInvalidItems = cart.some(item => 
-      isNaN(item.sellPrice) || item.sellPrice < 0 || 
-      isNaN(item.cartQuantity) || item.cartQuantity <= 0
+      isNaN(Number(item.sellPrice)) || Number(item.sellPrice) < 0 || 
+      isNaN(Number(item.cartQuantity)) || Number(item.cartQuantity) <= 0
     );
     
     if (hasInvalidItems) {
@@ -158,8 +158,8 @@ export default function POS() {
         await storage.saveTransaction({
           product_id: item.id,
           type: "SALE",
-          quantity: item.cartQuantity * item.stockDeduction, // Deduct actual stock amount
-          unit_price: item.sellPrice / item.stockDeduction, // Unit price relative to stock unit
+          quantity: (Number(item.cartQuantity) || 0) * (Number(item.stockDeduction) || 1), // Deduct actual stock amount
+          unit_price: (Number(item.sellPrice) || 0) / (Number(item.stockDeduction) || 1), // Unit price relative to stock unit
           payment_method: paymentMethod,
         });
       }
@@ -391,7 +391,7 @@ export default function POS() {
                       {item.name}
                       {item.variantName && <span className="text-xs text-slate-500 ml-1">({item.variantName})</span>}
                     </div>
-                    <div className="text-sm text-indigo-600 font-medium">{item.sellPrice.toLocaleString('fr-FR')} FCFA</div>
+                    <div className="text-sm text-indigo-600 font-medium">{(Number(item.sellPrice) || 0).toLocaleString('fr-FR')} FCFA</div>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="flex items-center bg-white rounded-lg border border-slate-200">
