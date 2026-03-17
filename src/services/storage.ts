@@ -721,16 +721,16 @@ export const storage = {
     }, 0);
 
     return {
-      revenue: isNaN(revenue) ? 0 : revenue,
-      grossProfit: isNaN(grossProfit) ? 0 : grossProfit,
-      netProfit: isNaN(netProfit) ? 0 : netProfit,
-      totalExpenses: isNaN(totalExpenses) ? 0 : totalExpenses,
+      revenue: isNaN(revenue) ? 0 : Math.round(revenue),
+      grossProfit: isNaN(grossProfit) ? 0 : Math.round(grossProfit),
+      netProfit: isNaN(netProfit) ? 0 : Math.round(netProfit),
+      totalExpenses: isNaN(totalExpenses) ? 0 : Math.round(totalExpenses),
       salesCount: sales.length,
       lowStockCount,
-      totalStockValue: isNaN(totalStockValue) ? 0 : totalStockValue,
-      totalCash,
-      totalWave,
-      totalOrangeMoney
+      totalStockValue: isNaN(totalStockValue) ? 0 : Math.round(totalStockValue),
+      totalCash: Math.round(totalCash),
+      totalWave: Math.round(totalWave),
+      totalOrangeMoney: Math.round(totalOrangeMoney)
     };
   },
 
@@ -775,7 +775,7 @@ export const storage = {
         const product = products.find(p => String(p.id) === id);
         return {
           name: product?.name || 'Unknown',
-          profit
+          profit: Math.round(profit)
         };
       })
       .sort((a, b) => b.profit - a.profit)

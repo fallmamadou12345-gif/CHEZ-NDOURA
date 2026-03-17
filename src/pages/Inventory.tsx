@@ -289,16 +289,16 @@ export default function Inventory() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right text-slate-600">
-                    {product.batch_price.toLocaleString('fr-FR')} FCFA <span className="text-xs text-slate-400">/ {product.batch_quantity}</span>
+                    {Math.round(product.batch_price).toLocaleString('fr-FR')} FCFA <span className="text-xs text-slate-400">/ {product.batch_quantity}</span>
                   </td>
                   <td className="px-6 py-4 text-right text-slate-600">
-                    {product.unit_cost?.toLocaleString('fr-FR')} FCFA
+                    {product.unit_cost ? Math.round(product.unit_cost).toLocaleString('fr-FR') : 0} FCFA
                   </td>
                   <td className="px-6 py-4 text-right font-medium text-slate-900">
-                    {product.unit_sell_price.toLocaleString('fr-FR')} FCFA
+                    {Math.round(product.unit_sell_price).toLocaleString('fr-FR')} FCFA
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="text-emerald-600 font-medium">{product.margin?.toLocaleString('fr-FR')} FCFA</div>
+                    <div className="text-emerald-600 font-medium">{product.margin ? Math.round(product.margin).toLocaleString('fr-FR') : 0} FCFA</div>
                     <div className="text-xs text-slate-400">{product.margin_percent?.toFixed(1)}%</div>
                   </td>
                   <td className="px-6 py-4 text-right">
@@ -440,7 +440,7 @@ export default function Inventory() {
                      <p className="text-xs text-slate-500 flex justify-between">
                        <span>Coût unitaire calculé :</span>
                        <span className="font-medium text-slate-900">
-                         {(parseNumber(formData.batch_price || "0") / (parseNumber(formData.batch_quantity) || 1)).toLocaleString('fr-FR')} FCFA
+                         {Math.round(parseNumber(formData.batch_price || "0") / (parseNumber(formData.batch_quantity) || 1)).toLocaleString('fr-FR')} FCFA
                        </span>
                      </p>
                   </div>
@@ -651,7 +651,7 @@ export default function Inventory() {
 
               {restockData.quantity && restockData.total_cost && (
                 <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
-                  Nouveau coût unitaire : <strong>{(parseNumber(restockData.total_cost) / parseNumber(restockData.quantity)).toLocaleString('fr-FR')} FCFA</strong>
+                  Nouveau coût unitaire : <strong>{Math.round(parseNumber(restockData.total_cost) / parseNumber(restockData.quantity)).toLocaleString('fr-FR')} FCFA</strong>
                 </div>
               )}
 
