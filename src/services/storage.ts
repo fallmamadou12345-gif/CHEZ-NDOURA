@@ -39,6 +39,33 @@ const dispatchStorageEvent = (key: string) => {
   window.dispatchEvent(new Event(`storage-${key}`));
 };
 
+const parseNumber = (val: any): number => {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  let stringVal = val.toString().trim();
+  
+  const lastCommaIndex = stringVal.lastIndexOf(',');
+  const lastDotIndex = stringVal.lastIndexOf('.');
+  
+  if (lastCommaIndex > -1 && lastDotIndex > -1) {
+    if (lastCommaIndex > lastDotIndex) {
+      stringVal = stringVal.replace(/\./g, '').replace(',', '.');
+    } else {
+      stringVal = stringVal.replace(/,/g, '');
+    }
+  } else if (lastCommaIndex > -1) {
+    stringVal = stringVal.replace(',', '.');
+  } else if (lastDotIndex > -1) {
+    const dotCount = (stringVal.match(/\./g) || []).length;
+    if (dotCount > 1) {
+      stringVal = stringVal.replace(/\./g, '');
+    }
+  }
+  
+  const parsed = parseFloat(stringVal.replace(/[^0-9.-]+/g, ''));
+  return isNaN(parsed) ? 0 : parsed;
+};
+
 export const storage = {
   // --- Users ---
   getUsers: async (): Promise<User[]> => {
@@ -162,30 +189,30 @@ export const storage = {
   saveProduct: async (product: Omit<Product, "id" | "created_at">): Promise<Product> => {
     // Validate product data
     if (!product.name || product.name.trim() === "") throw new Error("Le nom du produit est requis.");
-    if (isNaN(Number(product.unit_sell_price)) || Number(product.unit_sell_price) < 0) throw new Error("Prix de vente invalide.");
-    if (isNaN(Number(product.batch_quantity)) || Number(product.batch_quantity) <= 0) throw new Error("Quantité du lot invalide.");
-    if (isNaN(Number(product.batch_price)) || Number(product.batch_price) < 0) throw new Error("Prix d'achat du lot invalide.");
-    if (isNaN(Number(product.stock_quantity)) || Number(product.stock_quantity) < 0) throw new Error("Quantité en stock invalide.");
-    if (isNaN(Number(product.min_stock_threshold)) || Number(product.min_stock_threshold) < 0) throw new Error("Seuil d'alerte invalide.");
+    if (isNaN(parseNumber(product.unit_sell_price)) || parseNumber(product.unit_sell_price) < 0) throw new Error("Prix de vente invalide.");
+    if (isNaN(parseNumber(product.batch_quantity)) || parseNumber(product.batch_quantity) <= 0) throw new Error("Quantité du lot invalide.");
+    if (isNaN(parseNumber(product.batch_price)) || parseNumber(product.batch_price) < 0) throw new Error("Prix d'achat du lot invalide.");
+    if (isNaN(parseNumber(product.stock_quantity)) || parseNumber(product.stock_quantity) < 0) throw new Error("Quantité en stock invalide.");
+    if (isNaN(parseNumber(product.min_stock_threshold)) || parseNumber(product.min_stock_threshold) < 0) throw new Error("Seuil d'alerte invalide.");
 
     // Validate variants if they exist
     if (product.variants) {
       for (const variant of product.variants) {
         if (!variant.name || variant.name.trim() === "") throw new Error("Le nom du format est requis.");
-        if (isNaN(Number(variant.price)) || Number(variant.price) < 0) throw new Error(`Prix invalide pour le format: ${variant.name}`);
-        if (isNaN(Number(variant.stock_equivalent)) || Number(variant.stock_equivalent) <= 0) throw new Error(`Quantité retirée invalide pour le format: ${variant.name}`);
+        if (isNaN(parseNumber(variant.price)) || parseNumber(variant.price) < 0) throw new Error(`Prix invalide pour le format: ${variant.name}`);
+        if (isNaN(parseNumber(variant.stock_equivalent)) || parseNumber(variant.stock_equivalent) <= 0) throw new Error(`Quantité retirée invalide pour le format: ${variant.name}`);
       }
     }
 
-    const unitCost = Number(product.batch_price) / Number(product.batch_quantity);
-    if (Number(product.unit_sell_price) < unitCost) {
+    const unitCost = parseNumber(product.batch_price) / parseNumber(product.batch_quantity);
+    if (parseNumber(product.unit_sell_price) < unitCost) {
       throw new Error(`Marge négative interdite. Le prix de vente (${product.unit_sell_price}) est inférieur au coût unitaire (${unitCost.toFixed(2)}).`);
     }
 
     if (product.variants) {
       for (const variant of product.variants) {
-        const variantCost = unitCost * Number(variant.stock_equivalent);
-        if (Number(variant.price) < variantCost) {
+        const variantCost = unitCost * parseNumber(variant.stock_equivalent);
+        if (parseNumber(variant.price) < variantCost) {
           throw new Error(`Marge négative interdite pour le format "${variant.name}". Prix: ${variant.price}, Coût: ${variantCost.toFixed(2)}.`);
         }
       }
@@ -217,16 +244,16 @@ export const storage = {
   updateProduct: async (id: number | string, updates: Partial<Product>): Promise<Product> => {
     // Validate updates if they exist
     if (updates.name !== undefined && updates.name.trim() === "") throw new Error("Le nom du produit ne peut pas être vide.");
-    if (updates.unit_sell_price !== undefined && (isNaN(Number(updates.unit_sell_price)) || Number(updates.unit_sell_price) < 0)) throw new Error("Prix de vente invalide.");
-    if (updates.batch_quantity !== undefined && (isNaN(Number(updates.batch_quantity)) || Number(updates.batch_quantity) <= 0)) throw new Error("Quantité du lot invalide.");
-    if (updates.batch_price !== undefined && (isNaN(Number(updates.batch_price)) || Number(updates.batch_price) < 0)) throw new Error("Prix d'achat du lot invalide.");
-    if (updates.stock_quantity !== undefined && (isNaN(Number(updates.stock_quantity)) || Number(updates.stock_quantity) < 0)) throw new Error("Quantité en stock invalide.");
+    if (updates.unit_sell_price !== undefined && (isNaN(parseNumber(updates.unit_sell_price)) || parseNumber(updates.unit_sell_price) < 0)) throw new Error("Prix de vente invalide.");
+    if (updates.batch_quantity !== undefined && (isNaN(parseNumber(updates.batch_quantity)) || parseNumber(updates.batch_quantity) <= 0)) throw new Error("Quantité du lot invalide.");
+    if (updates.batch_price !== undefined && (isNaN(parseNumber(updates.batch_price)) || parseNumber(updates.batch_price) < 0)) throw new Error("Prix d'achat du lot invalide.");
+    if (updates.stock_quantity !== undefined && (isNaN(parseNumber(updates.stock_quantity)) || parseNumber(updates.stock_quantity) < 0)) throw new Error("Quantité en stock invalide.");
     
     if (updates.variants) {
       for (const variant of updates.variants) {
         if (!variant.name || variant.name.trim() === "") throw new Error("Le nom du format est requis.");
-        if (isNaN(Number(variant.price)) || Number(variant.price) < 0) throw new Error(`Prix invalide pour le format: ${variant.name}`);
-        if (isNaN(Number(variant.stock_equivalent)) || Number(variant.stock_equivalent) <= 0) throw new Error(`Quantité retirée invalide pour le format: ${variant.name}`);
+        if (isNaN(parseNumber(variant.price)) || parseNumber(variant.price) < 0) throw new Error(`Prix invalide pour le format: ${variant.name}`);
+        if (isNaN(parseNumber(variant.stock_equivalent)) || parseNumber(variant.stock_equivalent) <= 0) throw new Error(`Quantité retirée invalide pour le format: ${variant.name}`);
       }
     }
 
@@ -241,14 +268,14 @@ export const storage = {
         const merged = { ...current, ...updates };
         
         // Validate margin
-        const unitCost = Number(merged.batch_price) / Number(merged.batch_quantity);
-        if (Number(merged.unit_sell_price) < unitCost) {
+        const unitCost = parseNumber(merged.batch_price) / parseNumber(merged.batch_quantity);
+        if (parseNumber(merged.unit_sell_price) < unitCost) {
           throw new Error(`Marge négative interdite. Le prix de vente (${merged.unit_sell_price}) est inférieur au coût unitaire (${unitCost.toFixed(2)}).`);
         }
         if (merged.variants) {
           for (const variant of merged.variants) {
-            const variantCost = unitCost * Number(variant.stock_equivalent);
-            if (Number(variant.price) < variantCost) {
+            const variantCost = unitCost * parseNumber(variant.stock_equivalent);
+            if (parseNumber(variant.price) < variantCost) {
               throw new Error(`Marge négative interdite pour le format "${variant.name}". Prix: ${variant.price}, Coût: ${variantCost.toFixed(2)}.`);
             }
           }
@@ -272,14 +299,14 @@ export const storage = {
         const merged = { ...current, ...updates };
         
         // Validate margin
-        const unitCost = Number(merged.batch_price) / Number(merged.batch_quantity);
-        if (Number(merged.unit_sell_price) < unitCost) {
+        const unitCost = parseNumber(merged.batch_price) / parseNumber(merged.batch_quantity);
+        if (parseNumber(merged.unit_sell_price) < unitCost) {
           throw new Error(`Marge négative interdite. Le prix de vente (${merged.unit_sell_price}) est inférieur au coût unitaire (${unitCost.toFixed(2)}).`);
         }
         if (merged.variants) {
           for (const variant of merged.variants) {
-            const variantCost = unitCost * Number(variant.stock_equivalent);
-            if (Number(variant.price) < variantCost) {
+            const variantCost = unitCost * parseNumber(variant.stock_equivalent);
+            if (parseNumber(variant.price) < variantCost) {
               throw new Error(`Marge négative interdite pour le format "${variant.name}". Prix: ${variant.price}, Coût: ${variantCost.toFixed(2)}.`);
             }
           }
@@ -362,8 +389,8 @@ export const storage = {
   },
 
   saveTransaction: async (transaction: Omit<Transaction, "id" | "timestamp" | "total_amount">): Promise<Transaction> => {
-    const qty = Number(transaction.quantity);
-    const price = Number(transaction.unit_price);
+    const qty = parseNumber(transaction.quantity);
+    const price = parseNumber(transaction.unit_price);
     
     if (isNaN(qty) || qty <= 0) {
       throw new Error("Erreur: Quantité invalide. La transaction a été refusée.");
@@ -644,7 +671,7 @@ export const storage = {
     let totalOrangeMoney = 0;
 
     const revenue = sales.reduce((sum, t) => {
-      const amount = Number(t.total_amount);
+      const amount = parseNumber(t.total_amount);
       const validAmount = isNaN(amount) ? 0 : amount;
       
       if (t.payment_method === 'WAVE') totalWave += validAmount;
@@ -654,8 +681,17 @@ export const storage = {
       return sum + validAmount;
     }, 0);
     
+    const withdrawals = transactions.filter(t => t.type === 'WITHDRAWAL');
+    withdrawals.forEach(t => {
+      const amount = parseNumber(t.total_amount);
+      const validAmount = isNaN(amount) ? 0 : amount;
+      if (t.payment_method === 'WAVE') totalWave -= validAmount;
+      else if (t.payment_method === 'ORANGE_MONEY') totalOrangeMoney -= validAmount;
+      else totalCash -= validAmount;
+    });
+    
     const totalExpenses = expenses.reduce((sum, e) => {
-      const amount = Number(e.amount);
+      const amount = parseNumber(e.amount);
       return sum + (isNaN(amount) ? 0 : amount);
     }, 0);
     
@@ -663,8 +699,8 @@ export const storage = {
     sales.forEach(sale => {
       const product = products.find(p => String(p.id) === String(sale.product_id));
       if (product) {
-        const cost = Number(product.unit_cost) || (Number(product.batch_price) / Number(product.batch_quantity)) || 0;
-        const qty = Number(sale.quantity) || 0;
+        const cost = parseNumber(product.unit_cost) || (parseNumber(product.batch_price) / parseNumber(product.batch_quantity)) || 0;
+        const qty = parseNumber(sale.quantity) || 0;
         const itemCogs = cost * qty;
         if (!isNaN(itemCogs)) {
           cogs += itemCogs;
@@ -673,12 +709,13 @@ export const storage = {
     });
 
     const grossProfit = revenue - cogs;
+    console.log("Dashboard Stats:", { revenue, cogs, grossProfit });
     const netProfit = grossProfit - totalExpenses;
     const lowStockCount = products.filter(p => p.stock_quantity <= p.min_stock_threshold).length;
     
     const totalStockValue = products.reduce((sum, p) => {
-      const cost = Number(p.unit_cost) || (Number(p.batch_price) / Number(p.batch_quantity)) || 0;
-      const qty = Number(p.stock_quantity) || 0;
+      const cost = parseNumber(p.unit_cost) || (parseNumber(p.batch_price) / parseNumber(p.batch_quantity)) || 0;
+      const qty = parseNumber(p.stock_quantity) || 0;
       const val = qty * cost;
       return sum + (isNaN(val) ? 0 : val);
     }, 0);

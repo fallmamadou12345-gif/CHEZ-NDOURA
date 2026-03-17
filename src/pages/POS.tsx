@@ -12,6 +12,33 @@ interface CartItem extends Product {
   stockDeduction: number; // How much to deduct from stock per unit
 }
 
+const parseNumber = (val: any): number => {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  let stringVal = val.toString().trim();
+  
+  const lastCommaIndex = stringVal.lastIndexOf(',');
+  const lastDotIndex = stringVal.lastIndexOf('.');
+  
+  if (lastCommaIndex > -1 && lastDotIndex > -1) {
+    if (lastCommaIndex > lastDotIndex) {
+      stringVal = stringVal.replace(/\./g, '').replace(',', '.');
+    } else {
+      stringVal = stringVal.replace(/,/g, '');
+    }
+  } else if (lastCommaIndex > -1) {
+    stringVal = stringVal.replace(',', '.');
+  } else if (lastDotIndex > -1) {
+    const dotCount = (stringVal.match(/\./g) || []).length;
+    if (dotCount > 1) {
+      stringVal = stringVal.replace(/\./g, '');
+    }
+  }
+  
+  const parsed = parseFloat(stringVal.replace(/[^0-9.-]+/g, ''));
+  return isNaN(parsed) ? 0 : parsed;
+};
+
 export default function POS() {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -28,8 +55,8 @@ export default function POS() {
   // Calculate change due when amount received changes
   useEffect(() => {
     if (amountReceived) {
-      const received = parseFloat(amountReceived);
-      const total = cart.reduce((sum, item) => sum + (Number(item.sellPrice) || 0) * (Number(item.cartQuantity) || 0), 0);
+      const received = parseNumber(amountReceived);
+      const total = cart.reduce((sum, item) => sum + parseNumber(item.sellPrice) * parseNumber(item.cartQuantity), 0);
       setChangeDue(Math.max(0, received - total));
     } else {
       setChangeDue(0);
@@ -132,7 +159,7 @@ export default function POS() {
   };
 
   const totalAmount = cart.reduce(
-    (sum, item) => sum + (Number(item.sellPrice) || 0) * (Number(item.cartQuantity) || 0),
+    (sum, item) => sum + parseNumber(item.sellPrice) * parseNumber(item.cartQuantity),
     0
   );
 
@@ -141,8 +168,8 @@ export default function POS() {
     
     // Validate cart items before proceeding
     const hasInvalidItems = cart.some(item => 
-      isNaN(Number(item.sellPrice)) || Number(item.sellPrice) < 0 || 
-      isNaN(Number(item.cartQuantity)) || Number(item.cartQuantity) <= 0
+      isNaN(parseNumber(item.sellPrice)) || parseNumber(item.sellPrice) < 0 || 
+      isNaN(parseNumber(item.cartQuantity)) || parseNumber(item.cartQuantity) <= 0
     );
     
     if (hasInvalidItems) {
@@ -158,8 +185,8 @@ export default function POS() {
         await storage.saveTransaction({
           product_id: item.id,
           type: "SALE",
-          quantity: (Number(item.cartQuantity) || 0) * (Number(item.stockDeduction) || 1), // Deduct actual stock amount
-          unit_price: (Number(item.sellPrice) || 0) / (Number(item.stockDeduction) || 1), // Unit price relative to stock unit
+          quantity: parseNumber(item.cartQuantity) * parseNumber(item.stockDeduction || 1), // Deduct actual stock amount
+          unit_price: parseNumber(item.sellPrice) / parseNumber(item.stockDeduction || 1), // Unit price relative to stock unit
           payment_method: paymentMethod,
         });
       }
@@ -325,7 +352,7 @@ export default function POS() {
                 onChange={(e) => setQuantityInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && quantityInput) {
-                    const val = parseFloat(quantityInput);
+                    const val = parseNumber(quantityInput);
                     if (isNaN(val) || val <= 0) {
                       alert("Veuillez entrer une quantité valide supérieure à 0.");
                       return;
@@ -338,7 +365,7 @@ export default function POS() {
               <button
                 onClick={() => {
                   if (quantityInput) {
-                    const val = parseFloat(quantityInput);
+                    const val = parseNumber(quantityInput);
                     if (isNaN(val) || val <= 0) {
                       alert("Veuillez entrer une quantité valide supérieure à 0.");
                       return;
@@ -391,7 +418,7 @@ export default function POS() {
                       {item.name}
                       {item.variantName && <span className="text-xs text-slate-500 ml-1">({item.variantName})</span>}
                     </div>
-                    <div className="text-sm text-indigo-600 font-medium">{(Number(item.sellPrice) || 0).toLocaleString('fr-FR')} FCFA</div>
+                    <div className="text-sm text-indigo-600 font-medium">{parseNumber(item.sellPrice).toLocaleString('fr-FR')} FCFA</div>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="flex items-center bg-white rounded-lg border border-slate-200">
@@ -407,7 +434,7 @@ export default function POS() {
                         step="0.01"
                         value={item.cartQuantity}
                         onChange={(e) => {
-                          const val = parseFloat(e.target.value);
+                          const val = parseNumber(e.target.value);
                           if (!isNaN(val) && val > 0) {
                             setCart(prev => prev.map(p => (p.id === item.id && p.variantId === item.variantId) ? { ...p, cartQuantity: val } : p));
                           } else if (e.target.value === "") {
@@ -499,12 +526,12 @@ export default function POS() {
           
           <button
             onClick={handleCheckout}
-            disabled={cart.length === 0 || processing || (paymentMethod === 'CASH' && amountReceived !== "" && parseFloat(amountReceived) < totalAmount)}
+            disabled={cart.length === 0 || processing || (paymentMethod === 'CASH' && amountReceived !== "" && parseNumber(amountReceived) < totalAmount)}
             className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all ${
               success 
                 ? "bg-emerald-500 text-white"
                 : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200"
-            } ${processing || cart.length === 0 || (paymentMethod === 'CASH' && amountReceived !== "" && parseFloat(amountReceived) < totalAmount) ? "opacity-50 cursor-not-allowed" : ""}`}
+            } ${processing || cart.length === 0 || (paymentMethod === 'CASH' && amountReceived !== "" && parseNumber(amountReceived) < totalAmount) ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             {processing ? (
               "Traitement..."

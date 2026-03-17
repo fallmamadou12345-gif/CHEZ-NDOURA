@@ -60,24 +60,44 @@ export default function Inventory() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const parseNumber = (val: any) => {
+    if (!val) return 0;
+    if (typeof val === 'number') return isNaN(val) ? 0 : val;
+    let stringVal = val.toString().trim();
+    
+    const lastCommaIndex = stringVal.lastIndexOf(',');
+    const lastDotIndex = stringVal.lastIndexOf('.');
+    
+    if (lastCommaIndex > -1 && lastDotIndex > -1) {
+      if (lastCommaIndex > lastDotIndex) {
+        stringVal = stringVal.replace(/\./g, '').replace(',', '.');
+      } else {
+        stringVal = stringVal.replace(/,/g, '');
+      }
+    } else if (lastCommaIndex > -1) {
+      stringVal = stringVal.replace(',', '.');
+    } else if (lastDotIndex > -1) {
+      const dotCount = (stringVal.match(/\./g) || []).length;
+      if (dotCount > 1) {
+        stringVal = stringVal.replace(/\./g, '');
+      }
+    }
+    
+    const parsed = parseFloat(stringVal.replace(/[^0-9.-]+/g, ''));
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     console.log("Form submitted");
     setIsSubmitting(true);
-    
-    // Helper to parse numbers with comma support
-    const parseNumber = (val: string) => {
-      if (!val) return 0;
-      // Handle both comma and dot
-      return parseFloat(val.toString().replace(',', '.'));
-    };
 
     try {
       const payload = {
         name: formData.name,
         sku: formData.sku,
         batch_price: parseNumber(formData.batch_price),
-        batch_quantity: parseInt(formData.batch_quantity) || 1,
+        batch_quantity: parseNumber(formData.batch_quantity) || 1,
         unit_sell_price: parseNumber(formData.unit_sell_price),
         stock_quantity: parseNumber(formData.stock_quantity),
         min_stock_threshold: parseNumber(formData.min_stock_threshold),
@@ -110,8 +130,8 @@ export default function Inventory() {
     e.preventDefault();
     if (!restockProduct) return;
 
-    const quantity = parseInt(restockData.quantity);
-    const totalCost = parseFloat(restockData.total_cost);
+    const quantity = parseNumber(restockData.quantity);
+    const totalCost = parseNumber(restockData.total_cost);
     const unitCost = totalCost / quantity;
 
     try {
@@ -416,7 +436,7 @@ export default function Inventory() {
                      <p className="text-xs text-slate-500 flex justify-between">
                        <span>Coût unitaire calculé :</span>
                        <span className="font-medium text-slate-900">
-                         {(parseFloat(formData.batch_price || "0") / parseInt(formData.batch_quantity || "1")).toLocaleString('fr-FR')} FCFA
+                         {(parseNumber(formData.batch_price || "0") / (parseNumber(formData.batch_quantity) || 1)).toLocaleString('fr-FR')} FCFA
                        </span>
                      </p>
                   </div>
@@ -478,7 +498,7 @@ export default function Inventory() {
                           value={variant.price}
                           onChange={(e) => {
                             const newVariants = [...(formData.variants || [])];
-                            newVariants[index].price = parseFloat(e.target.value) || 0;
+                            newVariants[index].price = parseNumber(e.target.value);
                             setFormData({ ...formData, variants: newVariants });
                           }}
                           className="w-full px-2 py-1 text-sm border border-slate-200 rounded focus:border-indigo-500 outline-none font-bold text-indigo-600"
@@ -493,7 +513,7 @@ export default function Inventory() {
                           value={variant.stock_equivalent}
                           onChange={(e) => {
                             const newVariants = [...(formData.variants || [])];
-                            newVariants[index].stock_equivalent = parseFloat(e.target.value) || 0;
+                            newVariants[index].stock_equivalent = parseNumber(e.target.value);
                             setFormData({ ...formData, variants: newVariants });
                           }}
                           className="w-full px-2 py-1 text-sm border border-slate-200 rounded focus:border-indigo-500 outline-none"
@@ -610,7 +630,7 @@ export default function Inventory() {
 
               {restockData.quantity && restockData.total_cost && (
                 <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
-                  Nouveau coût unitaire : <strong>{(parseFloat(restockData.total_cost) / parseInt(restockData.quantity)).toLocaleString('fr-FR')} FCFA</strong>
+                  Nouveau coût unitaire : <strong>{(parseNumber(restockData.total_cost) / parseNumber(restockData.quantity)).toLocaleString('fr-FR')} FCFA</strong>
                 </div>
               )}
 

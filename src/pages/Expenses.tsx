@@ -40,12 +40,39 @@ export default function Expenses() {
     fetchExpenses();
   }, []);
 
+  const parseNumber = (val: any) => {
+    if (!val) return 0;
+    if (typeof val === 'number') return isNaN(val) ? 0 : val;
+    let stringVal = val.toString().trim();
+    
+    const lastCommaIndex = stringVal.lastIndexOf(',');
+    const lastDotIndex = stringVal.lastIndexOf('.');
+    
+    if (lastCommaIndex > -1 && lastDotIndex > -1) {
+      if (lastCommaIndex > lastDotIndex) {
+        stringVal = stringVal.replace(/\./g, '').replace(',', '.');
+      } else {
+        stringVal = stringVal.replace(/,/g, '');
+      }
+    } else if (lastCommaIndex > -1) {
+      stringVal = stringVal.replace(',', '.');
+    } else if (lastDotIndex > -1) {
+      const dotCount = (stringVal.match(/\./g) || []).length;
+      if (dotCount > 1) {
+        stringVal = stringVal.replace(/\./g, '');
+      }
+    }
+    
+    const parsed = parseFloat(stringVal.replace(/[^0-9.-]+/g, ''));
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const payload = {
       category: formData.category,
       description: formData.description,
-      amount: parseFloat(formData.amount),
+      amount: parseNumber(formData.amount),
       date: formData.date,
     };
 

@@ -11,6 +11,41 @@ interface DashboardProps {
 export default function Dashboard({ onNavigate }: DashboardProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
+  const [withdrawalData, setWithdrawalData] = useState({
+    amount: '',
+    payment_method: 'CASH' as 'CASH' | 'WAVE' | 'ORANGE_MONEY',
+    reason: 'Achat de nouveaux produits'
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleWithdrawal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!withdrawalData.amount) return;
+    
+    setIsSubmitting(true);
+    try {
+      await storage.saveTransaction({
+        product_id: 'WITHDRAWAL',
+        type: 'WITHDRAWAL',
+        quantity: 1,
+        unit_price: Number(withdrawalData.amount),
+        total_amount: Number(withdrawalData.amount),
+        payment_method: withdrawalData.payment_method
+      });
+      
+      setIsWithdrawalModalOpen(false);
+      setWithdrawalData({ amount: '', payment_method: 'CASH', reason: 'Achat de nouveaux produits' });
+      
+      // Reload stats
+      const data = await storage.getDashboardStats();
+      setStats(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     // Initial load
@@ -145,7 +180,16 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       </div>
 
       <div>
-        <h3 className="text-lg font-bold text-slate-900 mb-4">Caisse par Mode de Paiement</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold text-slate-900">Caisse par Mode de Paiement</h3>
+          <button
+            onClick={() => setIsWithdrawalModalOpen(true)}
+            className="flex items-center space-x-2 bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-700 transition-colors text-sm"
+          >
+            <Banknote className="w-4 h-4" />
+            <span>Retrait / Vider Caisse</span>
+          </button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <StatCard
             title="Caisse Espèces"
@@ -178,6 +222,84 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           Utilisez le menu latéral pour accéder à la caisse, gérer votre inventaire ou consulter les rapports détaillés.
         </p>
       </div>
+
+      {/* Withdrawal Modal */}
+      {isWithdrawalModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+          >
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-slate-900">Retrait de Caisse</h3>
+              <button onClick={() => setIsWithdrawalModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <span className="text-2xl">&times;</span>
+              </button>
+            </div>
+            <form onSubmit={handleWithdrawal} className="p-6 space-y-4">
+              <p className="text-sm text-slate-500">
+                Enregistrez un retrait (ex: pour l'achat de nouveaux produits). Cela déduira le montant de la caisse sélectionnée.
+              </p>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Caisse</label>
+                <select
+                  value={withdrawalData.payment_method}
+                  onChange={e => setWithdrawalData({...withdrawalData, payment_method: e.target.value as any})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                >
+                  <option value="CASH">Espèces ({stats?.totalCash.toLocaleString('fr-FR')} FCFA)</option>
+                  <option value="WAVE">Wave ({stats?.totalWave.toLocaleString('fr-FR')} FCFA)</option>
+                  <option value="ORANGE_MONEY">Orange Money ({stats?.totalOrangeMoney.toLocaleString('fr-FR')} FCFA)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Montant à retirer (FCFA)</label>
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  value={withdrawalData.amount}
+                  onChange={e => setWithdrawalData({...withdrawalData, amount: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-mono"
+                  placeholder="Ex: 50000"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Motif</label>
+                <input
+                  required
+                  type="text"
+                  value={withdrawalData.reason}
+                  onChange={e => setWithdrawalData({...withdrawalData, reason: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                  placeholder="Ex: Achat de marchandises"
+                />
+              </div>
+
+              <div className="pt-4 flex space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setIsWithdrawalModalOpen(false)}
+                  className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium disabled:opacity-50"
+                >
+                  {isSubmitting ? "Enregistrement..." : "Valider le retrait"}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

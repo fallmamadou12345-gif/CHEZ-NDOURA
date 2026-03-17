@@ -46,7 +46,7 @@ export type PaymentMethod = 'CASH' | 'WAVE' | 'ORANGE_MONEY';
 export interface Transaction {
   id: number | string;
   product_id: number | string;
-  type: 'PURCHASE' | 'SALE' | 'ADJUSTMENT';
+  type: 'PURCHASE' | 'SALE' | 'ADJUSTMENT' | 'WITHDRAWAL';
   quantity: number;
   unit_price: number;
   total_amount: number;
