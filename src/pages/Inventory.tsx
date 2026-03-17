@@ -31,6 +31,7 @@ export default function Inventory() {
   const [restockData, setRestockData] = useState({
     quantity: "",
     total_cost: "",
+    new_sell_price: "",
   });
 
   const fetchProducts = async () => {
@@ -133,6 +134,7 @@ export default function Inventory() {
     const quantity = parseNumber(restockData.quantity);
     const totalCost = parseNumber(restockData.total_cost);
     const unitCost = totalCost / quantity;
+    const newSellPrice = restockData.new_sell_price !== "" ? parseNumber(restockData.new_sell_price) : restockProduct.unit_sell_price;
 
     try {
       // 1. Record the transaction (Stock IN)
@@ -143,16 +145,17 @@ export default function Inventory() {
         unit_price: unitCost,
       });
 
-      // 2. Update the product's reference batch price/qty
+      // 2. Update the product's reference batch price/qty and potentially selling price
       await storage.updateProduct(restockProduct.id, {
         batch_price: totalCost,
         batch_quantity: quantity,
+        unit_sell_price: newSellPrice,
         // Stock is automatically updated by saveTransaction in storage service
       });
 
       setIsRestockModalOpen(false);
       setRestockProduct(null);
-      setRestockData({ quantity: "", total_cost: "" });
+      setRestockData({ quantity: "", total_cost: "", new_sell_price: "" });
       fetchProducts();
     } catch (error: any) {
       alert(`Erreur lors du réapprovisionnement: ${error.message || "Erreur inconnue"}`);
@@ -387,7 +390,7 @@ export default function Inventory() {
                     <input
                       required
                       type="number"
-                      step="0.01"
+                      step="0.001"
                       value={formData.stock_quantity}
                       onChange={e => setFormData({...formData, stock_quantity: e.target.value})}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
@@ -426,7 +429,8 @@ export default function Inventory() {
                     <input
                       required
                       type="number"
-                      min="1"
+                      min="0.001"
+                      step="0.001"
                       value={formData.batch_quantity}
                       onChange={e => setFormData({...formData, batch_quantity: e.target.value})}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
@@ -508,7 +512,7 @@ export default function Inventory() {
                         <label className="block text-[10px] font-medium text-slate-500 mb-1">Qté retirée ({formData.unit})</label>
                         <input
                           type="number"
-                          step="0.01"
+                          step="0.001"
                           placeholder="0.5"
                           value={variant.stock_equivalent}
                           onChange={(e) => {
@@ -551,6 +555,7 @@ export default function Inventory() {
                   <input
                     required
                     type="number"
+                    step="0.001"
                     value={formData.min_stock_threshold}
                     onChange={e => setFormData({...formData, min_stock_threshold: e.target.value})}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
@@ -607,7 +612,8 @@ export default function Inventory() {
                 <input
                   required
                   type="number"
-                  min="1"
+                  min="0.001"
+                  step="0.001"
                   value={restockData.quantity}
                   onChange={e => setRestockData({...restockData, quantity: e.target.value})}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
@@ -626,6 +632,21 @@ export default function Inventory() {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
                   placeholder="Ex: 250.00"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Nouveau Prix de Vente (Optionnel)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={restockData.new_sell_price}
+                  onChange={e => setRestockData({...restockData, new_sell_price: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                  placeholder={`Actuel: ${restockProduct.unit_sell_price.toLocaleString('fr-FR')} FCFA`}
+                />
+                <p className="text-xs text-slate-500 mt-1">Laissez vide pour conserver le prix actuel.</p>
               </div>
 
               {restockData.quantity && restockData.total_cost && (

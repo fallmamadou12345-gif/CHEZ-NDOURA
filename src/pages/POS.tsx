@@ -150,8 +150,8 @@ export default function POS() {
     setCart((prev) =>
       prev.map((item) => {
         if (item.id === productId && item.variantId === variantId) {
-          const newQty = Math.max(0.1, item.cartQuantity + delta);
-          return { ...item, cartQuantity: parseFloat(newQty.toFixed(2)) };
+          const newQty = Math.max(0.001, item.cartQuantity + delta);
+          return { ...item, cartQuantity: parseFloat(newQty.toFixed(3)) };
         }
         return item;
       })
@@ -418,7 +418,22 @@ export default function POS() {
                       {item.name}
                       {item.variantName && <span className="text-xs text-slate-500 ml-1">({item.variantName})</span>}
                     </div>
-                    <div className="text-sm text-indigo-600 font-medium">{parseNumber(item.sellPrice).toLocaleString('fr-FR')} FCFA</div>
+                    <div className="flex items-center mt-1">
+                      <input 
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.sellPrice}
+                        onChange={(e) => {
+                          const val = parseNumber(e.target.value);
+                          if (!isNaN(val) && val >= 0) {
+                            setCart(prev => prev.map(p => (p.id === item.id && p.variantId === item.variantId) ? { ...p, sellPrice: val } : p));
+                          }
+                        }}
+                        className="w-24 text-sm text-indigo-600 font-medium border border-indigo-200 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                      <span className="text-xs text-slate-500 ml-1">FCFA</span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="flex items-center bg-white rounded-lg border border-slate-200">
@@ -431,7 +446,7 @@ export default function POS() {
                       <input 
                         type="number" 
                         min="0.001"
-                        step="0.01"
+                        step="0.001"
                         value={item.cartQuantity}
                         onChange={(e) => {
                           const val = parseNumber(e.target.value);
