@@ -7,8 +7,12 @@ export default function History() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState<"ALL" | "SALE" | "PURCHASE">("ALL");
+  const [filterType, setFilterType] = useState<"ALL" | "SALE" | "PURCHASE" | "WITHDRAWAL">("ALL");
   const [productsMap, setProductsMap] = useState<Record<string, string>>({});
+  
+  // Date filters
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   useEffect(() => {
     const loadData = async () => {
@@ -49,8 +53,31 @@ export default function History() {
     const matchesSearch = productsMap[String(t.product_id)]?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           t.id.toString().includes(searchTerm);
     const matchesType = filterType === "ALL" || t.type === filterType;
-    return matchesSearch && matchesType;
+    
+    // Date filtering
+    let matchesDate = true;
+    const txDate = new Date(t.timestamp);
+    txDate.setHours(0, 0, 0, 0); // Normalize to start of day for comparison
+    
+    if (startDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      if (txDate < start) matchesDate = false;
+    }
+    
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      if (txDate > end) matchesDate = false;
+    }
+
+    return matchesSearch && matchesType && matchesDate;
   });
+
+  // Calculate totals
+  const totalSales = filteredTransactions.filter(t => t.type === 'SALE').reduce((sum, t) => sum + t.total_amount, 0);
+  const totalPurchases = filteredTransactions.filter(t => t.type === 'PURCHASE').reduce((sum, t) => sum + t.total_amount, 0);
+  const totalWithdrawals = filteredTransactions.filter(t => t.type === 'WITHDRAWAL').reduce((sum, t) => sum + t.total_amount, 0);
 
   if (loading) return <div className="p-8 text-center text-slate-500">Chargement de l'historique...</div>;
 
@@ -58,25 +85,89 @@ export default function History() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-slate-900">Historique des Transactions</h2>
-        <p className="text-slate-500">Consultez toutes les ventes et les entrées de stock.</p>
+        <p className="text-slate-500">Consultez toutes les ventes, achats et retraits avec filtrage par période.</p>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {(filterType === 'ALL' || filterType === 'SALE') && (
+          <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <p className="text-emerald-600 text-sm font-medium mb-1">Total des Ventes</p>
+              <p className="text-2xl font-bold text-emerald-700">{totalSales.toLocaleString('fr-FR')} FCFA</p>
+            </div>
+            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
+              <ArrowUpRight className="w-6 h-6" />
+            </div>
+          </div>
+        )}
+        {(filterType === 'ALL' || filterType === 'PURCHASE') && (
+          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <p className="text-blue-600 text-sm font-medium mb-1">Total des Achats</p>
+              <p className="text-2xl font-bold text-blue-700">{totalPurchases.toLocaleString('fr-FR')} FCFA</p>
+            </div>
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+              <ArrowDownLeft className="w-6 h-6" />
+            </div>
+          </div>
+        )}
+        {(filterType === 'ALL' || filterType === 'WITHDRAWAL') && (
+          <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <p className="text-red-600 text-sm font-medium mb-1">Total des Retraits</p>
+              <p className="text-2xl font-bold text-red-700">{totalWithdrawals.toLocaleString('fr-FR')} FCFA</p>
+            </div>
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center text-red-600">
+              <ArrowDownLeft className="w-6 h-6" />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="Rechercher par produit ou ID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-          />
+      <div className="flex flex-col space-y-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Rechercher par produit ou ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+            />
+          </div>
+          <div className="flex gap-2 items-center bg-white border border-slate-200 rounded-xl px-3 py-1">
+            <Calendar className="text-slate-400 w-5 h-5" />
+            <input 
+              type="date" 
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="border-none focus:ring-0 text-sm text-slate-600 outline-none"
+            />
+            <span className="text-slate-400">au</span>
+            <input 
+              type="date" 
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="border-none focus:ring-0 text-sm text-slate-600 outline-none"
+            />
+            {(startDate || endDate) && (
+              <button 
+                onClick={() => { setStartDate(""); setEndDate(""); }}
+                className="text-xs text-slate-400 hover:text-slate-600 ml-2"
+              >
+                Effacer
+              </button>
+            )}
+          </div>
         </div>
-        <div className="flex gap-2">
+        
+        <div className="flex gap-2 overflow-x-auto pb-2">
           <button
             onClick={() => setFilterType("ALL")}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
               filterType === "ALL" ? "bg-slate-800 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
             }`}
           >
@@ -84,7 +175,7 @@ export default function History() {
           </button>
           <button
             onClick={() => setFilterType("SALE")}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
               filterType === "SALE" ? "bg-emerald-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
             }`}
           >
@@ -92,7 +183,7 @@ export default function History() {
           </button>
           <button
             onClick={() => setFilterType("PURCHASE")}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
               filterType === "PURCHASE" ? "bg-blue-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
             }`}
           >
@@ -100,7 +191,7 @@ export default function History() {
           </button>
           <button
             onClick={() => setFilterType("WITHDRAWAL")}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
               filterType === "WITHDRAWAL" ? "bg-red-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
             }`}
           >
@@ -174,8 +265,8 @@ export default function History() {
               ))}
               {filteredTransactions.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                    Aucune transaction trouvée.
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                    Aucune transaction trouvée pour cette période.
                   </td>
                 </tr>
               )}
