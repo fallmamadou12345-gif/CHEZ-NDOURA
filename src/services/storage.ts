@@ -460,6 +460,45 @@ export const storage = {
     }
   },
 
+  addCreditPayment: async (id: number | string, amount: number, method: PaymentMethod): Promise<void> => {
+    const payment: CreditPayment = {
+      amount,
+      method,
+      date: new Date().toISOString()
+    };
+
+    if (isFirebaseConfigured && db) {
+      const transactionRef = doc(db, COLLECTIONS.TRANSACTIONS, String(id));
+      const snap = await getDoc(transactionRef);
+      if (snap.exists()) {
+        const tx = snap.data() as Transaction;
+        const payments = tx.payments || [];
+        payments.push(payment);
+        
+        const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+        const status = totalPaid >= tx.total_amount ? 'COMPLETED' : 'PENDING';
+        
+        await updateDoc(transactionRef, {
+          payments,
+          status
+        });
+      }
+    } else {
+      const transactions = await storage.getTransactions();
+      const index = transactions.findIndex(t => String(t.id) === String(id));
+      if (index !== -1) {
+        const tx = transactions[index];
+        if (!tx.payments) tx.payments = [];
+        tx.payments.push(payment);
+        
+        const totalPaid = tx.payments.reduce((sum, p) => sum + p.amount, 0);
+        tx.status = totalPaid >= tx.total_amount ? 'COMPLETED' : 'PENDING';
+        
+        localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
+      }
+    }
+  },
+
   deleteTransaction: async (id: number | string): Promise<void> => {
     if (isFirebaseConfigured && db) {
       const transactionRef = doc(db, COLLECTIONS.TRANSACTIONS, String(id));
@@ -669,14 +708,29 @@ export const storage = {
     let totalCash = 0;
     let totalWave = 0;
     let totalOrangeMoney = 0;
+    let totalCredit = 0;
 
     const revenue = sales.reduce((sum, t) => {
       const amount = parseNumber(t.total_amount);
       const validAmount = isNaN(amount) ? 0 : amount;
       
-      if (t.payment_method === 'WAVE') totalWave += validAmount;
-      else if (t.payment_method === 'ORANGE_MONEY') totalOrangeMoney += validAmount;
-      else totalCash += validAmount;
+      if (t.payment_method === 'CREDIT') {
+        const paid = t.payments?.reduce((pSum, p) => pSum + p.amount, 0) || 0;
+        if (t.status === 'PENDING') {
+          totalCredit += (validAmount - paid);
+        }
+        
+        // Add payments to respective totals
+        t.payments?.forEach(p => {
+          if (p.method === 'CASH') totalCash += p.amount;
+          if (p.method === 'WAVE') totalWave += p.amount;
+          if (p.method === 'ORANGE_MONEY') totalOrangeMoney += p.amount;
+        });
+      } else {
+        if (t.payment_method === 'WAVE') totalWave += validAmount;
+        else if (t.payment_method === 'ORANGE_MONEY') totalOrangeMoney += validAmount;
+        else totalCash += validAmount;
+      }
       
       return sum + validAmount;
     }, 0);
@@ -687,6 +741,9 @@ export const storage = {
       const validAmount = isNaN(amount) ? 0 : amount;
       if (t.payment_method === 'WAVE') totalWave -= validAmount;
       else if (t.payment_method === 'ORANGE_MONEY') totalOrangeMoney -= validAmount;
+      else if (t.payment_method === 'CREDIT') {
+        // Ignore
+      }
       else totalCash -= validAmount;
     });
     
@@ -730,7 +787,8 @@ export const storage = {
       totalStockValue: isNaN(totalStockValue) ? 0 : Math.round(totalStockValue),
       totalCash: Math.round(totalCash),
       totalWave: Math.round(totalWave),
-      totalOrangeMoney: Math.round(totalOrangeMoney)
+      totalOrangeMoney: Math.round(totalOrangeMoney),
+      totalCredit: Math.round(totalCredit)
     };
   },
 

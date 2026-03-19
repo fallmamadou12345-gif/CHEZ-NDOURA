@@ -8,6 +8,7 @@ import Reports from "./pages/Reports";
 import Expenses from "./pages/Expenses";
 import Settings from "./pages/Settings";
 import History from "./pages/History";
+import Credits from "./pages/Credits";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
 function LoginScreen() {
@@ -73,6 +74,8 @@ function AppContent() {
         return isAdmin ? <Inventory /> : <div className="p-8 text-center text-slate-500">Accès réservé aux administrateurs</div>;
       case "/pos":
         return <POS />;
+      case "/credits":
+        return <Credits />;
       case "/expenses":
         return isAdmin ? <Expenses /> : <div className="p-8 text-center text-slate-500">Accès réservé aux administrateurs</div>;
       case "/reports":
@@ -89,8 +92,8 @@ function AppContent() {
   // Filter nav items based on role
   const filteredNavItems = NAV_ITEMS.filter(item => {
     if (isAdmin) return true;
-    // Cashier only sees POS and History
-    return ["/pos", "/history"].includes(item.href);
+    // Cashier only sees POS, Credits and History
+    return ["/pos", "/credits", "/history"].includes(item.href);
   });
 
   return (

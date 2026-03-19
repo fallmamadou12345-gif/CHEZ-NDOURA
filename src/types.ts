@@ -41,7 +41,13 @@ export interface ProductVariant {
   stock_equivalent: number;
 }
 
-export type PaymentMethod = 'CASH' | 'WAVE' | 'ORANGE_MONEY';
+export type PaymentMethod = 'CASH' | 'WAVE' | 'ORANGE_MONEY' | 'CREDIT';
+
+export interface CreditPayment {
+  amount: number;
+  method: PaymentMethod;
+  date: string;
+}
 
 export interface Transaction {
   id: number | string;
@@ -52,6 +58,10 @@ export interface Transaction {
   total_amount: number;
   timestamp: string;
   payment_method?: PaymentMethod;
+  customer_name?: string;
+  customer_phone?: string;
+  status?: 'COMPLETED' | 'PENDING';
+  payments?: CreditPayment[];
 }
 
 export interface DashboardStats {
@@ -65,6 +75,7 @@ export interface DashboardStats {
   totalCash: number;
   totalWave: number;
   totalOrangeMoney: number;
+  totalCredit: number;
 }
 
 export interface Expense {

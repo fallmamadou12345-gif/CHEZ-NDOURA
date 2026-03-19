@@ -208,7 +208,7 @@ export default function History() {
               <tr>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Produit</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Produit / Client</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Quantité</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Prix Unitaire</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Total</th>
@@ -222,26 +222,47 @@ export default function History() {
                     {new Date(t.timestamp).toLocaleString('fr-FR')}
                   </td>
                   <td className="px-6 py-4">
-                    {t.type === 'SALE' ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                        <ArrowUpRight className="w-3 h-3 mr-1" /> Vente
-                      </span>
-                    ) : t.type === 'PURCHASE' ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        <ArrowDownLeft className="w-3 h-3 mr-1" /> Achat
-                      </span>
-                    ) : t.type === 'WITHDRAWAL' ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                        <ArrowDownLeft className="w-3 h-3 mr-1" /> Retrait
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
-                        Autre
-                      </span>
-                    )}
+                    <div className="flex flex-col gap-1 items-start">
+                      {t.type === 'SALE' ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                          <ArrowUpRight className="w-3 h-3 mr-1" /> Vente
+                        </span>
+                      ) : t.type === 'PURCHASE' ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          <ArrowDownLeft className="w-3 h-3 mr-1" /> Achat
+                        </span>
+                      ) : t.type === 'WITHDRAWAL' ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          <ArrowDownLeft className="w-3 h-3 mr-1" /> Retrait
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
+                          Autre
+                        </span>
+                      )}
+                      
+                      {t.payment_method && (
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium ${
+                          t.payment_method === 'CASH' ? 'bg-slate-100 text-slate-600' :
+                          t.payment_method === 'WAVE' ? 'bg-blue-50 text-blue-600' :
+                          t.payment_method === 'ORANGE_MONEY' ? 'bg-orange-50 text-orange-600' :
+                          'bg-red-50 text-red-600'
+                        }`}>
+                          {t.payment_method === 'ORANGE_MONEY' ? 'ORANGE M.' : t.payment_method}
+                          {t.status === 'PENDING' && ` (Reste: ${(t.total_amount - (t.payments?.reduce((s, p) => s + p.amount, 0) || 0)).toLocaleString('fr-FR')})`}
+                        </span>
+                      )}
+                    </div>
                   </td>
-                  <td className="px-6 py-4 font-medium text-slate-900">
-                    {t.type === 'WITHDRAWAL' ? 'Retrait de Caisse' : (productsMap[String(t.product_id)] || `Produit #${t.product_id}`)}
+                  <td className="px-6 py-4">
+                    <div className="font-medium text-slate-900">
+                      {t.type === 'WITHDRAWAL' ? 'Retrait de Caisse' : (productsMap[String(t.product_id)] || `Produit #${t.product_id}`)}
+                    </div>
+                    {t.customer_name && (
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        Client: {t.customer_name}
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-right text-slate-600">
                     {t.quantity}

@@ -51,6 +51,10 @@ export default function POS() {
   const [amountReceived, setAmountReceived] = useState("");
   const [changeDue, setChangeDue] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [advanceAmount, setAdvanceAmount] = useState("");
+  const [advancePaymentMethod, setAdvancePaymentMethod] = useState<PaymentMethod>('CASH');
 
   // Calculate change due when amount received changes
   useEffect(() => {
@@ -177,23 +181,53 @@ export default function POS() {
       return;
     }
 
+    if (paymentMethod === 'CREDIT' && !customerName.trim()) {
+      alert("Erreur: Le nom du client est obligatoire pour une vente à crédit.");
+      return;
+    }
+
     setProcessing(true);
 
     try {
+      const advance = parseNumber(advanceAmount);
+      const payments = advance > 0 ? [{ amount: advance, method: advancePaymentMethod, date: new Date().toISOString() }] : [];
+      const status = advance >= totalAmount ? 'COMPLETED' : 'PENDING';
+
       // Process each item as a transaction
       for (const item of cart) {
+        // Calculate proportional advance if there are multiple items
+        // For simplicity, we just attach the full advance to the first item, or split it.
+        // Actually, since transactions are per item, splitting advance is complex.
+        // Let's attach the advance proportionally.
+        const itemTotal = parseNumber(item.sellPrice) * parseNumber(item.cartQuantity);
+        const itemAdvance = advance > 0 ? Math.round((itemTotal / totalAmount) * advance) : 0;
+        const itemPayments = itemAdvance > 0 ? [{ amount: itemAdvance, method: advancePaymentMethod, date: new Date().toISOString() }] : [];
+        const itemStatus = itemAdvance >= itemTotal ? 'COMPLETED' : 'PENDING';
+
         await storage.saveTransaction({
           product_id: item.id,
           type: "SALE",
           quantity: parseNumber(item.cartQuantity) * parseNumber(item.stockDeduction || 1), // Deduct actual stock amount
           unit_price: parseNumber(item.sellPrice) / parseNumber(item.stockDeduction || 1), // Unit price relative to stock unit
           payment_method: paymentMethod,
+          ...(paymentMethod === 'CREDIT' ? {
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            status: itemStatus,
+            payments: itemPayments
+          } : {
+            status: 'COMPLETED'
+          })
         });
       }
 
       setSuccess(true);
       setCart([]);
       setAmountReceived(""); // Reset amount received
+      setCustomerName("");
+      setCustomerPhone("");
+      setAdvanceAmount("");
+      setAdvancePaymentMethod('CASH');
       fetchProducts(); // Refresh stock
       setTimeout(() => {
         setSuccess(false);
@@ -490,7 +524,7 @@ export default function POS() {
 
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-2">Mode de paiement</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 <button
                   onClick={() => setPaymentMethod('CASH')}
                   className={`py-2 flex flex-col items-center justify-center gap-1 text-xs font-bold rounded-lg border transition-colors ${paymentMethod === 'CASH' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
@@ -514,8 +548,77 @@ export default function POS() {
                   <img src="https://play-lh.googleusercontent.com/VGOxVRf_AtRYSFbYCr1qZ-eZDDldQxt8dpjQ62MFpoS9JXK-f2l1DIKxjt8TJ8MX-txu" alt="Orange Money" className="w-8 h-8 rounded-md object-cover mb-1" referrerPolicy="no-referrer" />
                   Orange M.
                 </button>
+                <button
+                  onClick={() => setPaymentMethod('CREDIT')}
+                  className={`py-2 flex flex-col items-center justify-center gap-1 text-xs font-bold rounded-lg border transition-colors ${paymentMethod === 'CREDIT' ? 'bg-red-50 border-red-500 text-red-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                >
+                  <div className="w-8 h-8 flex items-center justify-center bg-red-100 text-red-600 rounded-full mb-1">
+                    <span className="text-lg font-bold">📝</span>
+                  </div>
+                  Crédit
+                </button>
               </div>
             </div>
+
+            {paymentMethod === 'CREDIT' && (
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Nom du client *</label>
+                  <input
+                    type="text"
+                    placeholder="Nom complet"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Téléphone (Optionnel)</label>
+                  <input
+                    type="tel"
+                    placeholder="Numéro de téléphone"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Avance (Optionnel)</label>
+                  <input
+                    type="number"
+                    placeholder="Montant de l'avance"
+                    value={advanceAmount}
+                    onChange={(e) => setAdvanceAmount(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-900"
+                  />
+                </div>
+                {parseNumber(advanceAmount) > 0 && (
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Mode de paiement de l'avance</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => setAdvancePaymentMethod('CASH')}
+                        className={`py-2 flex flex-col items-center justify-center gap-1 text-xs font-bold rounded-lg border transition-colors ${advancePaymentMethod === 'CASH' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                      >
+                        Espèces
+                      </button>
+                      <button
+                        onClick={() => setAdvancePaymentMethod('WAVE')}
+                        className={`py-2 flex flex-col items-center justify-center gap-1 text-xs font-bold rounded-lg border transition-colors ${advancePaymentMethod === 'WAVE' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                      >
+                        Wave
+                      </button>
+                      <button
+                        onClick={() => setAdvancePaymentMethod('ORANGE_MONEY')}
+                        className={`py-2 flex flex-col items-center justify-center gap-1 text-xs font-bold rounded-lg border transition-colors ${advancePaymentMethod === 'ORANGE_MONEY' ? 'bg-orange-50 border-orange-500 text-orange-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                      >
+                        Orange M.
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {paymentMethod === 'CASH' && (
               <div className="grid grid-cols-2 gap-4">
